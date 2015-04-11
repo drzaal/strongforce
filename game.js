@@ -119,7 +119,7 @@ function shallBubble() {
 	var bubbler = Math.random();
 	if ( bubbler < 0.02 ) {
 
-		var channel = Math.floor( Math.random() * (hex_grid.length-1) );
+		var channel = Math.floor( Math.random() * 6); // (hex_grid.length-1) );
 		var bin = Math.floor( Math.random() * NATIONS_COUNT );
 		
 
@@ -142,8 +142,7 @@ function shallBubble() {
 			hex_grid[channel][0] = ball;
 		}
 		else {
-			hex_grid[channel][1] = hex_grid[channel][0];
-			hex_grid[channel][1].hex_y += 1;
+			hexBump( channel, 0 );
 			hex_grid[channel][0] = ball;
 			console.log( ball );
 		}
@@ -160,4 +159,15 @@ function hex2cart( i, j ) {
 	var x = i*10 - 5*(j%2);
 	var y = $('#stage').height() - 104 - j*8;
 	return [ x, y ];
+}
+
+function hexBump( hex_x, hex_y ) {
+	var shoulder = Math.floor(Math.random() * 2) + hex_y %2;
+
+	if ( hex_grid[ hex_x + shoulder ][ hex_y + 1 ] != null ) {
+		hexBump(hex_x + shoulder, hex_y + 1);
+	}
+	hex_grid[hex_x][hex_y].hex_x = hex_x + shoulder;
+	hex_grid[hex_x][hex_y].hex_y = hex_y+1;
+	hex_grid[ hex_x + shoulder ][ hex_y + 1 ] = hex_grid[hex_x][hex_y];
 }
