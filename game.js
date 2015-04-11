@@ -1,6 +1,8 @@
 /* Main game update loop */
 var NATIONS_COUNT = 3; 
 var world;
+var hex_grid = [];
+var hex_arry = [];
 var renderer;
 var NATION_NAMES = [
 	'Federal States of Vespuccica',
@@ -19,7 +21,16 @@ $(function() {
 
 		stageWidth = $(document).width();
 		stageHeight = ($(document).height() - 84);
-console.log(stageHeight);
+
+		var i, j;
+		var imax = Math.floor( stageWidth / 10 );
+		var jmax = Math.floor( stageHeight / 8 );;
+		for ( i = 0; i < imax; i++ ) {
+			hex_grid[i] = [];
+			for ( j = 0; j < jmax; j++ ) {
+				hex_grid[i][j] = null;
+			}
+		}
 		renderer = Physics.renderer('canvas', {
 			el: 'stage',
 			width: stageWidth + 'px',
@@ -38,12 +49,20 @@ console.log(stageHeight);
 		var gravity = Physics.behavior('constant-acceleration', {
 			acc: { x : 0, y: 0.0004 } // this is the default
 		});
-		world.add( gravity );
+		// world.add( gravity );
 
 		world.add( renderer );
 
 		world.on('step', function(){
 			shallBubble();
+			var i=0;
+			var imax = hex_arry.length;
+			for (i=0;i<imax;i++) {
+				var ball = hex_arry[i];
+				var pos = ball.state.pos;
+				ball_du = hex2cart( ball.hex_x, ball.hex_y );
+				ball.state.vel.set( (ball_du[0] - pos.x) / 40, (ball_du[1] - pos.y) /40 );
+			}
 			world.render();
 		});
 
@@ -51,13 +70,15 @@ console.log(stageHeight);
 		var viewportBounds = Physics.aabb(0, 0, stageWidth, stageHeight-20);
 
 		// constrain objects to these bounds
+		/*
 		world.add(Physics.behavior('edge-collision-detection', {
 			aabb: viewportBounds,
 			restitution: 0.69,
 			cof: 0.69
 		}));
-		world.add( Physics.behavior('body-collision-detection') );
-		world.add( Physics.behavior('sweep-prune') );
+		*/
+		// world.add( Physics.behavior('body-collision-detection') );
+		// world.add( Physics.behavior('sweep-prune') );
 
 		// ensure objects bounce when edge collision is detected
 		world.add( Physics.behavior('body-impulse-response') );
@@ -72,10 +93,8 @@ console.log(stageHeight);
 	});
 	$.getScript("nation.js", function(){ 
 		$('.nation-state').click( function(e) {
-console.log(this);
-console.log(e);
 			var ball = Physics.body('circle', {
-				x: $(this).css('left') + $(this).width()/2,
+				x: parseInt($(e.currentTarget).css('left'), 10) + $(this).width()/2,
 				y: $('#stage').height(),
 				nation: $('#international .nation-state').index(this),
 				mass: 0.6,
@@ -84,7 +103,6 @@ console.log(e);
 				vy: -0.1,
 				radius: 15
 			});
-console.log(ball);
 			world.add( ball );
 		});
 	 });
@@ -101,28 +119,45 @@ function shallBubble() {
 	var bubbler = Math.random();
 	if ( bubbler < 0.02 ) {
 
+		var channel = Math.floor( Math.random() * (hex_grid.length-1) );
 		var bin = Math.floor( Math.random() * NATIONS_COUNT );
+		
 
 		var ball = Physics.body('circle', {
-			x: Math.floor((bin + 0.5) * $(window).width() / NATIONS_COUNT),
-			y: $('#stage').height(),
-			nation: bin,
+			x: hex2cart(channel, 0)[0],
+			y: hex2cart(channel, 0)[1] + 40,
 			mass: 0.1,
 			restitution: 0.4,
 			vx: (0.04 * Math.random()) - 0.02,
 			vy: -0.1,
 			radius: 5
 		});
+		ball.hex_x = channel;
+		ball.hex_y = 0;
+		ball.nation = bin;
+
 		world.add( ball );
 
-		/*
-			var bubble = $('<span class="wpn">&nbsp;</span>');
-			$('#international').append(bubble);
-			bubble.css({
-				'left' : ((bin + 0.5) * $(window).width() / NATIONS_COUNT) + 'px',
-				'bottom' : '40px',
-			});
-		*/
+		if (hex_grid[channel][0] == null) {
+			hex_grid[channel][0] = ball;
+		}
+		else {
+			hex_grid[channel][1] = hex_grid[channel][0];
+			hex_grid[channel][1].hex_y += 1;
+			hex_grid[channel][0] = ball;
+			console.log( ball );
+		}
+		hex_arry.push(ball);
+
 		shallBubble();
 	}
+}
+
+/*
+ * Convert hex coordinates to cartesian space.
+ */
+function hex2cart( i, j ) {
+	var x = i*10 - 5*(j%2);
+	var y = $('#stage').height() - 104 - j*8;
+	return [ x, y ];
 }
