@@ -1,0 +1,47 @@
+body {
+	margin: 0px;
+}
+
+.nation-state {
+	position: absolute;
+	bottom: 20px;
+	padding: 10px;
+	height:  30px;
+	margin: 0 5px 0 5px;
+	display: inline;
+	display: inline-block;
+	background-color: blue;
+	border: 2px solid: lightblue;
+	border-radius: 5px;
+}
+
+.wpn {
+	position: relative;
+	width: 10px;
+	height: 10px;
+	background-color: red;
+	border: 1px solid grey;
+	display: inline;
+	display: inline-block;
+
+	border-radius: 5px;
+}
+
+#footer {
+	position: absolute;
+	width: 100%;
+	bottom:0px;
+	background-color: black;
+	height: 20px;
+	margin: 0px;
+}
+
+
+#banner {
+	position: absolute;
+	width: 100%;
+	top:0px;
+	background-color: green;
+	height: 30px;
+	margin: 0px;
+}
