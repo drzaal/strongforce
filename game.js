@@ -62,12 +62,13 @@ $(function() {
 				var pos = ball.state.pos;
 				ball_du = hex2cart( ball.hex_x, ball.hex_y );
 				ball.state.vel.set( (ball_du[0] - pos.x) / 40, (ball_du[1] - pos.y) /40 );
+				hexSlip( ball.hex_x, ball.hex_y );
 			}
 			world.render();
 		});
 
 		// bounds of the window
-		var viewportBounds = Physics.aabb(0, 0, stageWidth, stageHeight-20);
+		// var viewportBounds = Physics.aabb(0, 0, stageWidth, stageHeight-20);
 
 		// constrain objects to these bounds
 		/*
@@ -81,7 +82,7 @@ $(function() {
 		// world.add( Physics.behavior('sweep-prune') );
 
 		// ensure objects bounce when edge collision is detected
-		world.add( Physics.behavior('body-impulse-response') );
+		// world.add( Physics.behavior('body-impulse-response') );
 
 		Physics.util.ticker.on(function( time, dt ){
 			world.step( time );
@@ -117,20 +118,18 @@ function main() {
 
 function shallBubble() {
 	var bubbler = Math.random();
-	if ( bubbler < 0.02 ) {
+	if ( bubbler < 0.42 ) {
 
-		var channel = Math.floor( Math.random() * 6); // (hex_grid.length-1) );
+		var channel = Math.floor( Math.random() * (hex_grid.length-1) );
 		var bin = Math.floor( Math.random() * NATIONS_COUNT );
 		
 
 		var ball = Physics.body('circle', {
 			x: hex2cart(channel, 0)[0],
 			y: hex2cart(channel, 0)[1] + 40,
-			mass: 0.1,
-			restitution: 0.4,
-			vx: (0.04 * Math.random()) - 0.02,
-			vy: -0.1,
-			radius: 5
+			vx: 0,
+			vy: 0,
+			radius: 4
 		});
 		ball.hex_x = channel;
 		ball.hex_y = 0;
@@ -156,13 +155,21 @@ function shallBubble() {
  * Convert hex coordinates to cartesian space.
  */
 function hex2cart( i, j ) {
-	var x = i*10 - 5*(j%2);
+	var x = i*10 + (j%2)*5;
 	var y = $('#stage').height() - 104 - j*8;
 	return [ x, y ];
 }
 
 function hexBump( hex_x, hex_y ) {
-	var shoulder = Math.floor(Math.random() * 2) + hex_y %2;
+	var shoulder = Math.floor(Math.random() * 2) - ((hex_y+1) %2);
+	if ( hex_x + shoulder < 0) {
+		shoulder = 0;
+	}
+	if ( hex_x + shoulder >= hex_grid.length) {
+		shoulder = hex_grid.length-1;
+	}
+
+	hex_grid[hex_x][hex_y].sleep(false);
 
 	if ( hex_grid[ hex_x + shoulder ][ hex_y + 1 ] != null ) {
 		hexBump(hex_x + shoulder, hex_y + 1);
@@ -170,4 +177,24 @@ function hexBump( hex_x, hex_y ) {
 	hex_grid[hex_x][hex_y].hex_x = hex_x + shoulder;
 	hex_grid[hex_x][hex_y].hex_y = hex_y+1;
 	hex_grid[ hex_x + shoulder ][ hex_y + 1 ] = hex_grid[hex_x][hex_y];
+}
+
+function hexSlip( hex_x, hex_y ) {
+
+	var left_x = hex_x - ((hex_y+1)%2);
+	if ( hex_y > 0 ){
+		if ( left_x > 0 && hex_grid[left_x][hex_y-1] == null ) {
+			hex_grid[hex_x][hex_y].hex_x = left_x;
+			hex_grid[hex_x][hex_y].hex_y -= 1;
+			hex_grid[left_x][hex_y-1] = hex_grid[hex_x][hex_y];
+			hex_grid[hex_x][hex_y] = null;
+		}
+		else if ( left_x+1 < hex_grid.length && hex_grid[left_x+1][hex_y-1] == null ) {
+			hex_grid[hex_x][hex_y].hex_x = left_x+1;
+			hex_grid[hex_x][hex_y].hex_y -= 1;
+			hex_grid[left_x+1][hex_y-1] = hex_grid[hex_x][hex_y];
+			hex_grid[hex_x][hex_y] = null;
+		}
+	}
+
 }
