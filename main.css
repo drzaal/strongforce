@@ -45,3 +45,13 @@ body {
 	height: 30px;
 	margin: 0px;
 }
+
+#stage {
+	position: absolute;
+	margin: 0;
+	top: 30px;
+	bottom: 44px;
+	left: 0px;
+	right: 0px;
+	pointer-events: none;
+}
