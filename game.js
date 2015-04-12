@@ -5,7 +5,7 @@ var hex_grid = [];
 var hex_arry = [];
 var renderer;
 var bubble_rate = 0.12;
-var nuclear_energy_gain_rate = 0.001;
+var nuclear_energy_gain_rate = 0.0001;
 
 var NATIONS = {
 	'Federal States of Vespuccica': {
@@ -28,7 +28,8 @@ $(function() {
 	// Audio preloading
 	$.getScript("audio.js", function() {
 		GameAudio.init();
-		GameAudio.load('bubbleup', 'power4.wav');
+		GameAudio.load('bubbleup', 'collision2.wav');
+		GameAudio.load('newnuke', 'power4.wav');
 	});
 
 	$.getScript("PhysicsJS-0.7.0/dist/physicsjs-full.min.js", function(){
@@ -130,7 +131,7 @@ $(function() {
 
 	$.getScript("nation.js", function(){ 
 		$('.nation-state').click( function(e) {
-			console.log("CLICK NATION")
+			GameAudio.playSound('newnuke');
 			var ball = Physics.body('circle', {
 				x: e.clientX,
 				y: $('#stage').height(),
