@@ -47,8 +47,8 @@ body {
 	position: absolute;
 	width: 100%;
 	top:0px;
-	background-color: green;
-	height: 30px;
+	height: 128px;
+	background-image: url('assets/title.png');
 	margin: 0px;
 	z-index: 2;
 }
