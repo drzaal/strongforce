@@ -61,7 +61,7 @@ $(function() {
 				var ball = hex_arry[i];
 				var pos = ball.state.pos;
 				ball_du = hex2cart( ball.hex_x, ball.hex_y );
-				if (ball.atomic) {
+				if (ball.atomic && ball.hex_y == 0) {
 					ball.state.vel.set( (ball_du[0] - pos.x) / 320, (ball_du[1] - pos.y) /320 );
 				}
 				else {
