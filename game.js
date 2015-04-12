@@ -12,6 +12,13 @@ var NATION_NAMES = [
 ];
 
 $(function() {
+	// Audio preloading
+	$.getScript("audio.js", function() {
+		console.debug("LOADING AUDIO");
+		GameAudio.init();
+		GameAudio.load('bubbleup', 'power4.wav');
+	});
+
 	$.getScript("PhysicsJS-0.7.0/dist/physicsjs-full.min.js", function(){
 		world = Physics({
 			timestep: 1000.0 / 80,	
@@ -120,6 +127,8 @@ function shallBubble() {
 	var bubbler = Math.random();
 	if ( bubbler < 0.42 ) {
 
+		GameAudio.playSound('bubbleup');
+
 		var channel = Math.floor( Math.random() * (hex_grid.length-1) );
 		var bin = Math.floor( Math.random() * NATIONS_COUNT );
 		
@@ -147,7 +156,7 @@ function shallBubble() {
 		}
 		hex_arry.push(ball);
 
-		shallBubble();
+		window.setTimeout(shallBubble, 50);
 	}
 }
 
