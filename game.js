@@ -6,6 +6,7 @@ var hex_arry = [];
 var renderer;
 var bubble_rate = 0.12;
 var nuclear_energy_gain_rate = 0.0001;
+var freefall_timestep = 50; // uh maybe replace this with physicsjs timestep?
 
 var NATIONS = {
 	'Federal States of Vespuccica': {
@@ -30,6 +31,8 @@ $(function() {
 		GameAudio.init();
 		GameAudio.load('bubbleup', 'collision2.wav');
 		GameAudio.load('newnuke', 'power4.wav');
+		GameAudio.load('explodenuke', 'explosion2.wav');
+		GameAudio.load('explodenormal', 'explosion10.wav');
 	});
 
 	$.getScript("PhysicsJS-0.7.0/dist/physicsjs-full.min.js", function(){
@@ -82,14 +85,14 @@ $(function() {
 				var ball = hex_arry[i];
 				var pos = ball.state.pos;
 				ball_du = hex2cart( ball.hex_x, ball.hex_y );
-				ball.state.pos.set( ball_du[0], ball_du[1] );
-				ball.state.vel.set( 0, 0 );
-				// if (ball.atomic && ball.hex_y == 0) {
-				// 	ball.state.vel.set( (ball_du[0] - pos.x) / 320, (ball_du[1] - pos.y) /320 );
-				// }
-				// else {
-				// 	ball.state.vel.set( (ball_du[0] - pos.x) / 40, (ball_du[1] - pos.y) /40 );
-				// }
+				// ball.state.pos.set( ball_du[0], ball_du[1] );
+				// ball.state.vel.set( 0, 0 );
+				if (ball.atomic && ball.hex_y == 0) {
+					ball.state.vel.set( (ball_du[0] - pos.x) / 320, (ball_du[1] - pos.y) /320 );
+				}
+				else {
+					ball.state.vel.set( (ball_du[0] - pos.x) / 40, (ball_du[1] - pos.y) /40 );
+				}
 				if ( !hasBond( ball )) {
 					hexSlip( ball.hex_x, ball.hex_y );
 				}
@@ -151,6 +154,7 @@ $(function() {
 			ball.atomic = true;
 			ball.power = 3;
 
+			initMotionState(ball);
 
 			hexGen( ball, ball.hex_x, 0 );
 			hex_arry.push(ball);
@@ -202,6 +206,7 @@ function shallBubble() {
 		ball.atomic = false;
 		ball.power = 0;
 		ball.nation = nation_bin;
+		initMotionState(ball);
 
 		world.add( ball );
 
@@ -209,6 +214,13 @@ function shallBubble() {
 		hex_arry.push(ball);
 
 		window.setTimeout(shallBubble, 50);
+	}
+}
+
+function initMotionState(ball) {
+	ball.motion_state = {
+		freefall: false,
+		fall_dir: 0  // 0=falling rightwards; 1=falling leftwards
 	}
 }
 
@@ -249,6 +261,22 @@ function hexBump( hex_x, hex_y ) {
 
 
 function hexSlip( hex_x, hex_y ) {
+	var ball = hex_grid[hex_x][hex_y];
+	if (ball === null) { return; }
+
+	if (isTransitioningToFreefall(ball)) {
+		// TODO: distinguish between falling left and right (set ball.motion_state.fall_dir)
+		// async so it doesn't interrupt world loop
+		window.setTimeout(function() {
+			hexFreefall(hex_x, hex_y);
+		}, 0);
+		return;
+	}
+
+	if (ball.motion_state.freefall) {
+		// no need to call hexFreefall
+		return;
+	}
 
 	var left_x = hex_x - ((hex_y+1)%2);
 	if ( hex_y > 0 ){
@@ -266,6 +294,41 @@ function hexSlip( hex_x, hex_y ) {
 		}
 	}
 
+}
+
+function isOnHexGrid( hex_x, hex_y ) {
+	return hex_x >= 0 && hex_y >= 0 && hex_x < hex_grid.length && hex_y < hex_grid[0].length; 
+}
+
+function hexFreefall( hex_x, hex_y ) {
+	var ball = hex_grid[hex_x][hex_y];
+
+	if (!ball) { return; } // UGH THIS FUNCTION SHOULD NEVER BE CALLED WITH A NULL BALL :(
+
+	if (isTransitioningOutOfFreefall(ball)) {
+		ball.motion_state.freefall = false;
+		explode(ball);
+		return;
+	}
+	ball.motion_state.freefall = true;
+
+	// do the freefall
+	updateHex(
+		[hex_x, hex_y],
+		[hex_x + ball.motion_state.fall_dir, hex_y - 1]
+	);
+	// hex_grid[hex_x][hex_y].sleep(false); // maybe needed?
+
+	window.setTimeout(function() {
+		hexFreefall(hex_x + ball.motion_state.fall_dir, hex_y - 1);
+	}, freefall_timestep);
+}
+
+function updateHex(old_hex, new_hex) {
+	hex_grid[old_hex[0]][old_hex[1]].hex_x = new_hex[0];
+	hex_grid[old_hex[0]][old_hex[1]].hex_y = new_hex[1];
+	hex_grid[new_hex[0]][new_hex[1]] = hex_grid[old_hex[0]][old_hex[1]];
+	hex_grid[old_hex[0]][old_hex[1]] = null;
 }
 
 function hasBond( hex ) {
@@ -324,3 +387,40 @@ function isOutOfBounds(ball) {
 	var bounds = getNationBounds(ball.nation)
 	return (x < bounds[0] || x > bounds[1]);
 }
+
+function isTransitioningToFreefall(ball) {
+	if (ball.motion_state.freefall) { return false; } // already in freefall, not transitioning
+	return isInFreefall(ball);
+}
+
+function isTransitioningOutOfFreefall(ball) {
+	if (!ball.motion_state.freefall) { return false; } // wasn't already in freefall
+	return !isInFreefall(ball);
+}
+
+function isInFreefall(ball) {
+	var check_these_neighbors = [[-1, -1], [0, -1], [0, -2]];
+
+	var freefall = true;
+	check_these_neighbors.forEach(function(hex_delta) {
+		var hex_x = ball.hex_x + hex_delta[0];
+		var hex_y = ball.hex_y + hex_delta[1];
+		if (!isOnHexGrid(hex_x, hex_y)) { freefall = false; return; }
+		if (hex_grid[hex_x][hex_y] !== null) { freefall = false; }
+	})
+	return freefall;
+}
+
+
+
+function explode(ball) {
+	console.log("BALL EXPLODES - DEATH OCCURS!");
+
+	if (ball.atomic) {
+		GameAudio.playSound("explodenuke");
+	}
+	else {
+		GameAudio.playSound("explodenormal");
+	}
+}
+
