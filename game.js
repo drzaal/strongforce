@@ -61,7 +61,12 @@ $(function() {
 				var ball = hex_arry[i];
 				var pos = ball.state.pos;
 				ball_du = hex2cart( ball.hex_x, ball.hex_y );
+				if (ball.atomic) {
+					ball.state.vel.set( (ball_du[0] - pos.x) / 320, (ball_du[1] - pos.y) /320 );
+				}
+				else {
 				ball.state.vel.set( (ball_du[0] - pos.x) / 40, (ball_du[1] - pos.y) /40 );
+				}
 				hexSlip( ball.hex_x, ball.hex_y );
 			}
 			world.render();
@@ -95,15 +100,27 @@ $(function() {
 	$.getScript("nation.js", function(){ 
 		$('.nation-state').click( function(e) {
 			var ball = Physics.body('circle', {
-				x: parseInt($(e.currentTarget).css('left'), 10) + $(this).width()/2,
+				x: e.clientX,
 				y: $('#stage').height(),
-				nation: $('#international .nation-state').index(this),
 				mass: 0.6,
 				restitution: 0.4,
 				vx: (0.04 * Math.random()) - 0.02,
 				vy: -0.1,
-				radius: 15
+				styles: {
+					strokeStyle: '#542437',
+					lineWidth: 1,
+					fillStyle: '#5555ee',
+				},
+				radius: 4
 			});
+			ball.hex_x = Math.floor(e.clientX / 10);
+			ball.hex_y = 0;
+			ball.atomic = true;
+
+			hexGen( ball, ball.hex_x, 0 );
+			hex_arry.push(ball);
+
+			nation: $('#international .nation-state').index(this),
 			world.add( ball );
 		});
 	 });
@@ -123,6 +140,7 @@ function shallBubble() {
 		var channel = Math.floor( Math.random() * (hex_grid.length-1) );
 		var bin = Math.floor( Math.random() * NATIONS_COUNT );
 		
+		var color = Math.random() * 0xFFFFFF;
 
 		var ball = Physics.body('circle', {
 			x: hex2cart(channel, 0)[0],
@@ -133,18 +151,12 @@ function shallBubble() {
 		});
 		ball.hex_x = channel;
 		ball.hex_y = 0;
+		ball.atomic = false;
 		ball.nation = bin;
 
 		world.add( ball );
 
-		if (hex_grid[channel][0] == null) {
-			hex_grid[channel][0] = ball;
-		}
-		else {
-			hexBump( channel, 0 );
-			hex_grid[channel][0] = ball;
-			console.log( ball );
-		}
+		hexGen( ball, channel, 0 );
 		hex_arry.push(ball);
 
 		shallBubble();
@@ -158,6 +170,13 @@ function hex2cart( i, j ) {
 	var x = i*10 + (j%2)*5;
 	var y = $('#stage').height() - 104 - j*8;
 	return [ x, y ];
+}
+
+function hexGen( hex, hex_x, hex_y ) {
+	if (hex_grid[hex_x][hex_y] != null) {
+		hexBump( hex_x, hex_y );	
+	}
+	hex_grid[hex_x][hex_y] = hex;
 }
 
 function hexBump( hex_x, hex_y ) {
