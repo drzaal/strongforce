@@ -72,9 +72,11 @@ $(function() {
 					ball.state.vel.set( (ball_du[0] - pos.x) / 320, (ball_du[1] - pos.y) /320 );
 				}
 				else {
-				ball.state.vel.set( (ball_du[0] - pos.x) / 40, (ball_du[1] - pos.y) /40 );
+					ball.state.vel.set( (ball_du[0] - pos.x) / 40, (ball_du[1] - pos.y) /40 );
 				}
-				hexSlip( ball.hex_x, ball.hex_y );
+				if ( !hasBond( ball )) {
+					hexSlip( ball.hex_x, ball.hex_y );
+				}
 			}
 			world.render();
 		});
@@ -123,6 +125,7 @@ $(function() {
 			ball.hex_x = Math.floor(e.clientX / 10);
 			ball.hex_y = 0;
 			ball.atomic = true;
+			ball.power = 3;
 
 			hexGen( ball, ball.hex_x, 0 );
 			hex_arry.push(ball);
@@ -142,7 +145,7 @@ function main() {
 
 function shallBubble() {
 	var bubbler = Math.random();
-	if ( bubbler < 0.42 ) {
+	if ( bubbler < 0.12 ) {
 
 		GameAudio.playSound('bubbleup');
 
@@ -161,6 +164,7 @@ function shallBubble() {
 		ball.hex_x = channel;
 		ball.hex_y = 0;
 		ball.atomic = false;
+		ball.power = 0;
 		ball.nation = bin;
 
 		world.add( ball );
@@ -225,4 +229,48 @@ function hexSlip( hex_x, hex_y ) {
 		}
 	}
 
+}
+
+function hasBond( hex ) {
+
+	// Nukes never bond???
+	if (hex.atomic) { return false; }
+
+	hex_x = hex.hex_x;
+	hex_y = hex.hex_y;
+	var rowoffset = hex_y%2;
+	var adjacent = [
+		[ hex_x+1, hex_y ],
+		[ hex_x-1, hex_y ],
+		[ hex_x+rowoffset, hex_y+1 ],
+		[ hex_x+rowoffset-1, hex_y+1 ],
+		[ hex_x+rowoffset, hex_y-1 ],
+		[ hex_x+rowoffset-1, hex_y-1 ],
+	];
+	var i=0;
+	var imax = adjacent.length;
+
+	hex.power = 0;
+
+	var bond = false;
+	for ( i=0; i<imax; i++ ) {
+		var cell = adjacent[i];
+		// Don't allow invalid indices for checks.
+		if ( adjacent[i][0] < 0 || adjacent[i][1] < 0 || adjacent[i][0] >= hex_grid.length ) {
+			continue;
+		}
+		var neighbor = hex_grid[cell[0]][cell[1]];
+		if (neighbor == null) {
+			continue;
+		}
+		if ( hex_grid[cell[0]][cell[1]].power > hex.power) {
+			hex.power = hex_grid[cell[0]][cell[1]].power - 1;
+		}
+	}
+	if (hex.power > 0) {
+		return true;
+	}
+	else {
+		return false;
+	}
 }
