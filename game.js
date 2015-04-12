@@ -6,21 +6,31 @@ var hex_arry = [];
 var renderer;
 var bubble_rate = 0.12;
 var nuclear_energy_gain_rate = 0.001;
+var stageWidth = 600;
+var stageHeight = 400;
 
 var NATIONS = {
 	'Federal States of Vespuccica': {
-		energy: new Energy(100)
+		energy: new Energy(100),
+		color: '#4262a2',
 	},
 	'Democratic Just Peoples Republic of Something': {
 		player: true,
-		energy: new Energy(100, "#energy-guage-fill")
+		energy: new Energy(100, "#energy-guage-fill"),
+		color: '#42a262',
 	},
 	'Not Communism': {
-		energy: new Energy(100)
+		energy: new Energy(100),
+		color: '#a24262',
 	}
 };
+var NATIONS_INDEX = [
+	'Federal States of Vespuccica',
+	'Democratic Just Peoples Republic of Something',
+	'Not Communism',
+];
 
-var player_nation = "Democratic Just Peoples Republic of Something"
+var player_nation = "Democratic Just Peoples Republic of Something";
 
 
 
@@ -39,12 +49,9 @@ $(function() {
 			integrator: 'verlet'
 		});
 
-		stageWidth = $(document).width();
-		stageHeight = ($(document).height() - 84);
-
 		var i, j;
-		var imax = Math.floor( stageWidth / 10 );
-		var jmax = Math.floor( stageHeight / 8 );;
+		var imax = Math.floor( stageWidth / 10 ) - 1;
+		var jmax = Math.floor( stageHeight / 8 );
 		for ( i = 0; i < imax; i++ ) {
 			hex_grid[i] = [];
 			for ( j = 0; j < jmax; j++ ) {
@@ -129,6 +136,12 @@ $(function() {
 	});
 
 	$.getScript("nation.js", function(){ 
+		var bg_scale = ( $(document).width() * 8);
+
+		$('body').css({
+			'background-image': 'url("assets/bg.jpg")',	
+		});
+
 		$('.nation-state').click( function(e) {
 			console.log("CLICK NATION")
 			var ball = Physics.body('circle', {
@@ -180,7 +193,7 @@ function shallBubble() {
 		GameAudio.playSound('bubbleup');
 
 		// Choose only a channel that is within a particular nation
-		var nation_bin = Math.floor( Math.random() * NATIONS_COUNT );
+		var nation_bin = Math.floor( Math.random() * NATIONS_INDEX.length );
 		var bounds = getNationBounds(nation_bin);
 		var left = (bounds[0] + Math.random() * (bounds[1] - bounds[0]));
 		// console.log('left:', left);
@@ -194,6 +207,9 @@ function shallBubble() {
 			y: hex2cart(channel, 0)[1] + 40,
 			vx: 0,
 			vy: 0,
+			styles: {
+				fillStyle: NATIONS[NATIONS_INDEX[nation_bin]].color,
+			},
 			radius: 4
 		});
 		ball.hex_x = channel;
@@ -281,7 +297,7 @@ function hasBond( hex ) {
 		[ hex_x+rowoffset, hex_y+1 ],
 		[ hex_x+rowoffset-1, hex_y+1 ],
 		[ hex_x+rowoffset, hex_y-1 ],
-		[ hex_x+rowoffset-1, hex_y-1 ],
+		[ hex_x+rowoffset-1, hex_y-1 ]
 	];
 	var i=0;
 	var imax = adjacent.length;
@@ -289,6 +305,7 @@ function hasBond( hex ) {
 	hex.power = 0;
 
 	var bond = false;
+	var force = false;
 	for ( i=0; i<imax; i++ ) {
 		var cell = adjacent[i];
 		// Don't allow invalid indices for checks.
@@ -299,10 +316,18 @@ function hasBond( hex ) {
 		if (neighbor == null) {
 			continue;
 		}
-		if ( hex_grid[cell[0]][cell[1]].power > hex.power) {
-			hex.power = hex_grid[cell[0]][cell[1]].power - 1;
+		if ( neighbor.power > hex.power) {
+			if ( neighbor.nation == hex.nation ) {
+				hex.power = neighbor.power - 1;
+			}
+			else if ( i >= 2 ) {
+				force = true;
+			}
 		}
 	}
+	
+	if (force) { hexBump(hex_x, hex_y); }
+
 	if (hex.power > 0) {
 		return true;
 	}

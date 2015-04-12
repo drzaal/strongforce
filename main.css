@@ -1,20 +1,24 @@
 body {
 	margin: 0px;
+	/* background-color: #644; */
+	z-index: 0;
 }
 
 .nation-state {
 	position: relative;
-	width: 20%;
 	bottom: 20px;
 	padding: 10px;
 	margin: 0 20px;
 	display: inline;
 	display: inline-block;
-	background-color: blue;
 	border: 2px solid: lightblue;
 	border-radius: 5px;
-	color: white;
-	font: 12px Arial, sans-serif;
+	color: #cccccc;
+	background-color: rgba( 255, 255, 255, 0.2 );
+	font: 14px Arial, sans-serif;
+	font-weight: bold,
+	text-align: center;
+	background-image: url('assets/nations.png');
 }
 
 .wpn {
@@ -54,9 +58,10 @@ body {
 	margin: 0;
 	top: 30px;
 	bottom: 44px;
-	left: 0px;
-	right: 0px;
+	left: auto;
+	right: auto;
 	pointer-events: none;
+	z-index: 400;
 }
 
 #international {
