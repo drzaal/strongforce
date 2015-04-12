@@ -4,22 +4,35 @@ var world;
 var hex_grid = [];
 var hex_arry = [];
 var renderer;
-var NATION_NAMES = [
-	'Federal States of Vespuccica',
-	'Democratic Just Peoples Republic of Something',
-	'Not Communism',
+var bubble_rate = 0.12;
+var nuclear_energy_gain_rate = 0.001;
 
-];
+var NATIONS = {
+	'Federal States of Vespuccica': {
+		energy: new Energy(100)
+	},
+	'Democratic Just Peoples Republic of Something': {
+		player: true,
+		energy: new Energy(100, "#energy-guage-fill")
+	},
+	'Not Communism': {
+		energy: new Energy(100)
+	}
+};
+
+var player_nation = "Democratic Just Peoples Republic of Something"
+
+
 
 $(function() {
 	// Audio preloading
 	$.getScript("audio.js", function() {
-		console.debug("LOADING AUDIO");
 		GameAudio.init();
 		GameAudio.load('bubbleup', 'power4.wav');
 	});
 
 	$.getScript("PhysicsJS-0.7.0/dist/physicsjs-full.min.js", function(){
+
 		world = Physics({
 			timestep: 1000.0 / 80,	
 			maxIPF: 16,
@@ -68,18 +81,26 @@ $(function() {
 				var ball = hex_arry[i];
 				var pos = ball.state.pos;
 				ball_du = hex2cart( ball.hex_x, ball.hex_y );
-				if (ball.atomic && ball.hex_y == 0) {
-					ball.state.vel.set( (ball_du[0] - pos.x) / 320, (ball_du[1] - pos.y) /320 );
-				}
-				else {
-					ball.state.vel.set( (ball_du[0] - pos.x) / 40, (ball_du[1] - pos.y) /40 );
-				}
+				ball.state.pos.set( ball_du[0], ball_du[1] );
+				ball.state.vel.set( 0, 0 );
+				// if (ball.atomic && ball.hex_y == 0) {
+				// 	ball.state.vel.set( (ball_du[0] - pos.x) / 320, (ball_du[1] - pos.y) /320 );
+				// }
+				// else {
+				// 	ball.state.vel.set( (ball_du[0] - pos.x) / 40, (ball_du[1] - pos.y) /40 );
+				// }
 				if ( !hasBond( ball )) {
 					hexSlip( ball.hex_x, ball.hex_y );
 				}
 			}
 			world.render();
+
+			for (var nation in NATIONS) {
+				NATIONS[nation].energy.step();
+			}
 		});
+
+
 
 		// bounds of the window
 		// var viewportBounds = Physics.aabb(0, 0, stageWidth, stageHeight-20);
@@ -106,8 +127,10 @@ $(function() {
 		Physics.util.ticker.start();
 		world.wakeUpAll();
 	});
+
 	$.getScript("nation.js", function(){ 
 		$('.nation-state').click( function(e) {
+			console.log("CLICK NATION")
 			var ball = Physics.body('circle', {
 				x: e.clientX,
 				y: $('#stage').height(),
@@ -127,11 +150,18 @@ $(function() {
 			ball.atomic = true;
 			ball.power = 3;
 
+
 			hexGen( ball, ball.hex_x, 0 );
 			hex_arry.push(ball);
 
-			nation: $('#international .nation-state').index(this),
+			ball.nation = $('#international .nation-state').index(this);
 			world.add( ball );
+
+			// Increase energy rate (from nuclear power)
+			world.on('step', function() {
+				NATIONS[Object.keys(NATIONS)[ball.nation]].energy.nuclear_rate += nuclear_energy_gain_rate;
+			})
+
 		});
 	 });
 	//setInterval( main, 20 );
@@ -145,12 +175,17 @@ function main() {
 
 function shallBubble() {
 	var bubbler = Math.random();
-	if ( bubbler < 0.12 ) {
+	if ( bubbler < bubble_rate ) {
 
 		GameAudio.playSound('bubbleup');
 
-		var channel = Math.floor( Math.random() * (hex_grid.length-1) );
-		var bin = Math.floor( Math.random() * NATIONS_COUNT );
+		// Choose only a channel that is within a particular nation
+		var nation_bin = Math.floor( Math.random() * NATIONS_COUNT );
+		var bounds = getNationBounds(nation_bin);
+		var left = (bounds[0] + Math.random() * (bounds[1] - bounds[0]));
+		// console.log('left:', left);
+		// console.log('percentage:', left/stageWidth);
+		var channel = Math.floor( (hex_grid.length-1) * left / stageWidth );
 		
 		var color = Math.random() * 0xFFFFFF;
 
@@ -165,7 +200,7 @@ function shallBubble() {
 		ball.hex_y = 0;
 		ball.atomic = false;
 		ball.power = 0;
-		ball.nation = bin;
+		ball.nation = nation_bin;
 
 		world.add( ball );
 
@@ -210,6 +245,7 @@ function hexBump( hex_x, hex_y ) {
 	hex_grid[hex_x][hex_y].hex_y = hex_y+1;
 	hex_grid[ hex_x + shoulder ][ hex_y + 1 ] = hex_grid[hex_x][hex_y];
 }
+
 
 function hexSlip( hex_x, hex_y ) {
 
@@ -273,4 +309,17 @@ function hasBond( hex ) {
 	else {
 		return false;
 	}
+}
+
+function getNationBounds(index) {
+	var nation_element = $('#international .nation-state[data-nation="' + index + '"]');
+	return [nation_element.offset().left, nation_element.offset().left + nation_element.width()];
+}
+
+function isOutOfBounds(ball) {
+	// Is it in enemy territory??
+	if (!ball) { return false; }
+	var x = ball.state.pos.x;
+	var bounds = getNationBounds(ball.nation)
+	return (x < bounds[0] || x > bounds[1]);
 }

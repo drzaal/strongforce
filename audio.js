@@ -2,8 +2,6 @@ $(function() {
   window.GameAudio = {
 
     init: function() {
-      console.log('Audio.init');
-
       this.q = new createjs.LoadQueue();
       this.q.installPlugin(createjs.Sound);
       // q.addEventListener("loadstart", function() {});
@@ -12,7 +10,7 @@ $(function() {
     },
 
     load: function(id, filename) {
-        this.q.loadFile({id:id, src:"sounds/" + filename});
+      this.q.loadFile({id:id, src:"sounds/" + filename});
     },
 
     playSound: function(id) {
