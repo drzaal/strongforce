@@ -17,7 +17,6 @@ Energy.prototype.drain = function(amount) {
   this.level = Math.max(this.level - amount, this.min);
   this.display();
   if (this.level === this.min) {
-    console.log('OUT OF FUEL :(');
     Events.lose();
   }
 }
