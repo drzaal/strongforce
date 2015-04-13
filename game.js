@@ -33,17 +33,22 @@ var NATIONS_INDEX = [
 
 var player_nation = "Democratic Just Peoples Republic of Something";
 
-
-
 $(function() {
 	// Audio preloading
 	$.getScript("audio.js", function() {
 		GameAudio.init();
-		GameAudio.load('bubbleup', 'collision2.wav');
-		GameAudio.load('newnuke', 'power4.wav');
-		GameAudio.load('explodenuke', 'explosion2.wav');
-		GameAudio.load('explodenormal', 'explosion10.wav');
+		GameAudio.load('bubbleup', 'ball_new.wav');
+		GameAudio.load('newnuke', 'ball_grow.wav');
+		GameAudio.load('explodenuke', 'expl_atomic.wav');
+		GameAudio.load('explodenormal', 'expl_normal.wav');
+
+		GameAudio.load('background-music', 'Strong Force Music v3 looped.ogg');
 	});
+});
+
+$(document).on('audioloadcomplete', function() {
+
+	GameAudio.loop('background-music');
 
 	$.getScript("PhysicsJS-0.7.0/dist/physicsjs-full.min.js", function(){
 
@@ -153,9 +158,9 @@ $(function() {
 	$.getScript("nation.js", function(){ 
 		var bg_scale = ( $(document).width() * 8);
 
-		$('body').css({
-			'background-image': 'url("assets/bg.jpg")',	
-		});
+		// $('body').css({
+		// 	'background-image': 'url("assets/bg.jpg")',	
+		// });
 
 		$('.nation-state[data-nation=1]').click( function(e) {
 			GameAudio.playSound('newnuke');
@@ -172,6 +177,8 @@ $(function() {
 					fillStyle: 'white',
 				},
 				radius: 4
+				// width: 7,
+				// height: 7
 			});
 			ball.hex_x = Math.floor(e.clientX / 10);
 			ball.hex_y = 0;
@@ -219,7 +226,7 @@ function shallBubble() {
 		
 		var color = Math.random() * 0xFFFFFF;
 
-		var ball = Physics.body('circle', {
+		var ball = Physics.body('rectangle', {
 			x: hex2cart(channel, 0)[0],
 			y: hex2cart(channel, 0)[1] + 40,
 			vx: 0,
@@ -227,7 +234,9 @@ function shallBubble() {
 			styles: {
 				fillStyle: NATIONS[NATIONS_INDEX[nation_bin]].color,
 			},
-			radius: 4
+			// radius: 4
+			width: 7,
+			height: 7
 		});
 		ball.hex_x = channel;
 		ball.hex_y = 0;
