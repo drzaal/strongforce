@@ -1,4 +1,4 @@
-Energy = function(start_level, display_selector) {
+Energy = function(start_level, display_selector, is_player) {
   this.level= start_level;
   this.max = 100;
   this.min = 0;
@@ -16,7 +16,7 @@ Energy.prototype.add = function(amount) {
 Energy.prototype.drain = function(amount) {
   this.level = Math.max(this.level - amount, this.min);
   this.display();
-  if (this.level === this.min) {
+  if (this.level === this.min && is_player) {
     Events.lose();
   }
 }
