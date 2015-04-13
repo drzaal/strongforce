@@ -17,7 +17,7 @@ var NATIONS = {
 	},
 	'Democratic Just Peoples Republic of Something': {
 		player: true,
-		energy: new Energy(100, "#energy-guage-fill"),
+		energy: new Energy(100, "#energy-guage-fill", true),
 		color: '#42a262',
 	},
 	'Not Communism': {
