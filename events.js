@@ -15,6 +15,6 @@ Events = {
     $("#overlay").show().addClass('fadeout');
     window.setTimeout(function() {
       $("#overlay").text("Out of power");
-    })
+    }, 3000)
   }
 }
