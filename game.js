@@ -447,7 +447,8 @@ function isTransitioningOutOfFreefall(ball) {
 }
 
 function isInFreefall(ball) {
-	var check_these_neighbors = [[-1, -1], [0, -1], [0, -2]];
+	var rowoffset = hex_y%2;
+	var check_these_neighbors = [[-1+rowoffset, -1], [0+rowoffset, -1], [0, -2]];
 
 	var freefall = true;
 	check_these_neighbors.forEach(function(hex_delta) {
@@ -489,20 +490,19 @@ function operateOnAdjacent( hex, callback ) {
 		if (neighbor == null) {
 			continue;
 		}
-		callback( hex );
+		callback( neighbor );
 	}
 }
 
 
 function explode(ball) {
-	if ( ball.destroyed ) return;
-	console.log("BALL EXPLODES - DEATH OCCURS!");
-	console.log(ball);
+	if ( !ball || ball.destroyed ) { return; }
 
 	if (ball.atomic) {
 		GameAudio.playSound("explodenuke");
 		ball.destroyed = true;
 		operateOnAdjacent( ball, explode );
+		if (hex_y > 0 ) { explode( hex_grid[ball.hex_x][ball.hex_y-1]); } 
 		hex_grid[ball.hex_x][ball.hex_y] = null;
 	}
 	else {
