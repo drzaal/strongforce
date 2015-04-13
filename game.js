@@ -37,12 +37,12 @@ $(function() {
 	// Audio preloading
 	$.getScript("audio.js", function() {
 		GameAudio.init();
-		GameAudio.load('bubbleup', 'ball_new.wav');
-		GameAudio.load('newnuke', 'ball_grow.wav');
-		GameAudio.load('explodenuke', 'expl_atomic.wav');
-		GameAudio.load('explodenormal', 'expl_normal.wav');
+		GameAudio.load('bubbleup', 'ball_new_v2.wav');
+		GameAudio.load('newnuke', 'ball_grow_v2.wav');
+		GameAudio.load('explodenuke', 'expl_atomic_v3.wav');
+		GameAudio.load('explodenormal', 'expl_normal_v3.wav');
 
-		GameAudio.load('background-music', 'Strong Force Music v3 looped.ogg');
+		GameAudio.load('background-music', 'music_v4.ogg');
 	});
 });
 
@@ -458,3 +458,6 @@ function explode(ball) {
 	}
 }
 
+function triggerInvasion() {
+
+}
