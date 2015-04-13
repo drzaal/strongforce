@@ -93,8 +93,14 @@ $(document).on('audioloadcomplete', function() {
 			shallBubble();
 			var i=0;
 			var imax = hex_arry.length;
-			for (i=0;i<imax;i++) {
+			for (i=imax-1;i>=0;i--) {
 				var ball = hex_arry[i];
+				if (ball.destroyed) {
+					world.removeBody(ball);
+					hex_arry.splice(i,1);
+					ball = null;
+					continue;
+				}
 				var pos = ball.state.pos;
 				ball_du = hex2cart( ball.hex_x, ball.hex_y );
 				// ball.state.pos.set( ball_du[0], ball_du[1] );
@@ -106,7 +112,12 @@ $(document).on('audioloadcomplete', function() {
 					ball.state.vel.set( (ball_du[0] - pos.x) / 40, (ball_du[1] - pos.y) /40 );
 				}
 				if ( !hasBond( ball )) {
-					hexSlip( ball.hex_x, ball.hex_y );
+					if (ball.force) { 
+						hexBump( ball.hex_x, ball.hex_y);
+					}
+					else {
+						hexSlip( ball.hex_x, ball.hex_y );
+					}
 				}
 			}
 			world.render();
@@ -151,7 +162,7 @@ $(document).on('audioloadcomplete', function() {
 		// 	'background-image': 'url("assets/bg.jpg")',	
 		// });
 
-		$('.nation-state').click( function(e) {
+		$('.nation-state[data-nation=1]').click( function(e) {
 			GameAudio.playSound('newnuke');
 			var ball = Physics.body('circle', {
 				x: e.clientX,
@@ -163,7 +174,7 @@ $(document).on('audioloadcomplete', function() {
 				styles: {
 					strokeStyle: '#542437',
 					lineWidth: 1,
-					fillStyle: '#5555ee',
+					fillStyle: 'white',
 				},
 				radius: 4
 				// width: 7,
@@ -173,6 +184,7 @@ $(document).on('audioloadcomplete', function() {
 			ball.hex_y = 0;
 			ball.atomic = true;
 			ball.power = 3;
+			ball.destroyed = false;
 
 			initMotionState(ball);
 
@@ -230,6 +242,7 @@ function shallBubble() {
 		ball.hex_y = 0;
 		ball.atomic = false;
 		ball.power = 0;
+		ball.destroyed = false;
 		ball.nation = nation_bin;
 		initMotionState(ball);
 
@@ -357,6 +370,7 @@ function updateHex(old_hex, new_hex) {
 }
 
 function hasBond( hex ) {
+	hex.force = false;
 
 	// Nukes never bond???
 	if (hex.atomic) { return false; }
@@ -365,10 +379,10 @@ function hasBond( hex ) {
 	hex_y = hex.hex_y;
 	var rowoffset = hex_y%2;
 	var adjacent = [
-		[ hex_x+1, hex_y ],
-		[ hex_x-1, hex_y ],
 		[ hex_x+rowoffset, hex_y+1 ],
 		[ hex_x+rowoffset-1, hex_y+1 ],
+		[ hex_x+1, hex_y ],
+		[ hex_x-1, hex_y ],
 		[ hex_x+rowoffset, hex_y-1 ],
 		[ hex_x+rowoffset-1, hex_y-1 ]
 	];
@@ -398,9 +412,9 @@ function hasBond( hex ) {
 			}
 		}
 	}
-	
-	if (force) { hexBump(hex_x, hex_y); }
 
+	hex.force = force;
+	
 	if (hex.power > 0) {
 		return true;
 	}
@@ -433,7 +447,8 @@ function isTransitioningOutOfFreefall(ball) {
 }
 
 function isInFreefall(ball) {
-	var check_these_neighbors = [[-1, -1], [0, -1], [0, -2]];
+	var rowoffset = hex_y%2;
+	var check_these_neighbors = [[-1+rowoffset, -1], [0+rowoffset, -1], [0, -2]];
 
 	var freefall = true;
 	check_these_neighbors.forEach(function(hex_delta) {
@@ -445,16 +460,55 @@ function isInFreefall(ball) {
 	return freefall;
 }
 
+function getAdjacent( hex ) {
+	hex_x = hex.hex_x;
+	hex_y = hex.hex_y;
+	var rowoffset = hex_y%2;
+	var adjacent = [
+		[ hex_x+rowoffset, hex_y+1 ],
+		[ hex_x+rowoffset-1, hex_y+1 ],
+		[ hex_x+1, hex_y ],
+		[ hex_x-1, hex_y ],
+		[ hex_x+rowoffset, hex_y-1 ],
+		[ hex_x+rowoffset-1, hex_y-1 ]
+	];
+	return adjacent;
+}
+
+function operateOnAdjacent( hex, callback ) {
+	var adjacent = getAdjacent( hex );	
+	var i=0;
+	var imax = adjacent.length;
+
+	for ( i=0; i<imax; i++ ) {
+		var cell = adjacent[i];
+		// Don't allow invalid indices for checks.
+		if ( adjacent[i][0] < 0 || adjacent[i][1] < 0 || adjacent[i][0] >= hex_grid.length ) {
+			continue;
+		}
+		var neighbor = hex_grid[cell[0]][cell[1]];
+		if (neighbor == null) {
+			continue;
+		}
+		callback( neighbor );
+	}
+}
 
 
 function explode(ball) {
-	console.log("BALL EXPLODES - DEATH OCCURS!");
+	if ( !ball || ball.destroyed ) { return; }
 
 	if (ball.atomic) {
 		GameAudio.playSound("explodenuke");
+		ball.destroyed = true;
+		operateOnAdjacent( ball, explode );
+		if (hex_y > 0 ) { explode( hex_grid[ball.hex_x][ball.hex_y-1]); } 
+		hex_grid[ball.hex_x][ball.hex_y] = null;
 	}
 	else {
 		GameAudio.playSound("explodenormal");
+		ball.destroyed = true;
+		hex_grid[ball.hex_x][ball.hex_y] = null;
 	}
 }
 
