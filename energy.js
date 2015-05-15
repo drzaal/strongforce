@@ -14,6 +14,7 @@ Energy.prototype.add = function(amount) {
 }
 
 Energy.prototype.drain = function(amount) {
+  return;
   this.level = Math.max(this.level - amount, this.min);
   this.display();
   if (this.level === this.min && is_player) {

@@ -103,14 +103,14 @@ $(document).on('audioloadcomplete', function() {
 				}
 				var pos = ball.state.pos;
 				ball_du = hex2cart( ball.hex_x, ball.hex_y );
-				// ball.state.pos.set( ball_du[0], ball_du[1] );
-				// ball.state.vel.set( 0, 0 );
-				if (ball.atomic && ball.hex_y == 0) {
-					ball.state.vel.set( (ball_du[0] - pos.x) / 320, (ball_du[1] - pos.y) /320 );
-				}
-				else {
-					ball.state.vel.set( (ball_du[0] - pos.x) / 40, (ball_du[1] - pos.y) /40 );
-				}
+				ball.state.pos.set( ball_du[0], ball_du[1] );
+				ball.state.vel.set( 0, 0 );
+				// if (ball.atomic && ball.hex_y == 0) {
+				// 	ball.state.vel.set( (ball_du[0] - pos.x) / 320, (ball_du[1] - pos.y) /320 );
+				// }
+				// else {
+				// 	ball.state.vel.set( (ball_du[0] - pos.x) / 40, (ball_du[1] - pos.y) /40 );
+				// }
 				if ( !hasBond( ball )) {
 					if (ball.force) { 
 						hexBump( ball.hex_x, ball.hex_y);
@@ -269,6 +269,12 @@ function hex2cart( i, j ) {
 	var x = i*10 + (j%2)*5;
 	var y = $('#stage').height() - 104 - j*8;
 	return [ x, y ];
+}
+
+function cart2hex( x, y ) {
+	var j = Math.floor((y - $("#stage").height() + 104) / -8);
+	var i = Math.floor((x - (j%2)*5)/10);
+	return [ i, j ]
 }
 
 function hexGen( hex, hex_x, hex_y ) {
@@ -471,7 +477,12 @@ function getAdjacent( hex ) {
 		[ hex_x-1, hex_y ],
 		[ hex_x+rowoffset, hex_y-1 ],
 		[ hex_x+rowoffset-1, hex_y-1 ]
-	];
+	].filter(function(hex_coords) {
+		// Don't allow invalid indices
+		return hex_coords[0] > 0
+			&& hex_coords[1] > 0
+			&& hex_coords[0] < hex_grid.length
+	});
 	return adjacent;
 }
 
@@ -482,10 +493,6 @@ function operateOnAdjacent( hex, callback ) {
 
 	for ( i=0; i<imax; i++ ) {
 		var cell = adjacent[i];
-		// Don't allow invalid indices for checks.
-		if ( adjacent[i][0] < 0 || adjacent[i][1] < 0 || adjacent[i][0] >= hex_grid.length ) {
-			continue;
-		}
 		var neighbor = hex_grid[cell[0]][cell[1]];
 		if (neighbor == null) {
 			continue;
@@ -512,6 +519,73 @@ function explode(ball) {
 	}
 }
 
-function triggerInvasion() {
 
+
+// Chain reactions
+// 	start_ball      = what it says on the tin
+//	isTriggeredFunc = function that takes a ball and determines if it's already been triggered
+//	effectFunc      = function that gets called w/ each triggered ball and does whatever you want to it
+//  params          = optional object with useful parameters - see defaults
+function triggerChainReaction(start_ball, effectFunc, isTriggeredFunc, params) {
+	// WARNING: reaction will continue indefinitely if params.stop_probability = 0 and isTriggeredFunc always returns false
+	
+	// param defaults
+	if (!params) { params = {}; }
+	if (!params.hasOwnProperty('stop_probability')) { params.stop_probability = 0.05; }
+	if (!params.hasOwnProperty('time_delay'))       { params.time_delay = 100; } // ms
+
+	function getNextBall(previous_ball) {
+		var adjacents = getAdjacent(previous_ball)
+			.map(function(hex_coords) { return hex_grid[hex_coords[0]][hex_coords[1]]})
+			.filter(function(ball) {
+				return ball && !isTriggeredFunc(ball);
+			})
+
+		if (adjacents.length === 0) {
+			console.log('STOP: backed in corner!')
+			return null; // backed into a corner
+		}
+		return adjacents[Math.floor(Math.random() * adjacents.length)];
+	}
+
+	function propagateReaction(ball) {
+		effectFunc(ball);
+		var next_ball = getNextBall(ball);
+		if (!next_ball) { return; }
+		if (Math.random() > params.stop_probability) {
+			setTimeout(function() { propagateReaction(next_ball) }, params.time_delay);
+		}
+	}
+
+	// Kick it off!
+	propagateReaction(start_ball);
+}
+
+
+// sample chain reaction: turn them black when right-clicked
+$(document).on('contextmenu', function(evt) {
+	evt.preventDefault();
+	var hex_coords = getHexFromEvt(evt);
+	var ball = hex_grid[hex_coords[0]][hex_coords[1]];
+	if (!ball) { return; }
+	var effect = function(ball) {
+		ball.styles.fillStyle = 'black';
+		ball.view = null; //refresh view
+	}
+	var isTriggered = function(ball) { return ball.styles.fillStyle === 'black'; }
+	triggerChainReaction(ball, effect, isTriggered);
+	return false; // suppress context menu
+})
+
+
+
+// Mouse/canvas stuff
+function getCartFromEvt(evt) {
+	var offset = $("#stage").offset();
+	return [evt.pageX - offset.left, evt.pageY - offset.top];
+}
+
+function getHexFromEvt(evt) {
+	var cart_coords = getCartFromEvt(evt);
+	return cart2hex(cart_coords[0], cart_coords[1]);
 }
