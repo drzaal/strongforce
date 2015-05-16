@@ -103,14 +103,14 @@ $(document).on('audioloadcomplete', function() {
 				}
 				var pos = ball.state.pos;
 				ball_du = hex2cart( ball.hex_x, ball.hex_y );
-				// ball.state.pos.set( ball_du[0], ball_du[1] );
-				// ball.state.vel.set( 0, 0 );
-				if (ball.atomic && ball.hex_y == 0) {
-					ball.state.vel.set( (ball_du[0] - pos.x) / 320, (ball_du[1] - pos.y) /320 );
-				}
-				else {
-					ball.state.vel.set( (ball_du[0] - pos.x) / 40, (ball_du[1] - pos.y) /40 );
-				}
+				ball.state.pos.set( ball_du[0], ball_du[1] );
+				ball.state.vel.set( 0, 0 );
+				// if (ball.atomic && ball.hex_y == 0) {
+				// 	ball.state.vel.set( (ball_du[0] - pos.x) / 320, (ball_du[1] - pos.y) /320 );
+				// }
+				// else {
+				// 	ball.state.vel.set( (ball_du[0] - pos.x) / 40, (ball_du[1] - pos.y) /40 );
+				// }
 				if ( !hasBond( ball )) {
 					if (ball.force) { 
 						hexBump( ball.hex_x, ball.hex_y);
@@ -271,6 +271,12 @@ function hex2cart( i, j ) {
 	return [ x, y ];
 }
 
+function cart2hex( x, y ) {
+	var j = Math.floor((y - $("#stage").height() + 104) / -8);
+	var i = Math.floor((x - (j%2)*5)/10);
+	return [ i, j ]
+}
+
 function hexGen( hex, hex_x, hex_y ) {
 	if (hex_grid[hex_x][hex_y] != null) {
 		hexBump( hex_x, hex_y );	
@@ -278,6 +284,7 @@ function hexGen( hex, hex_x, hex_y ) {
 	hex_grid[hex_x][hex_y] = hex;
 }
 
+// move things upwards
 function hexBump( hex_x, hex_y ) {
 	var shoulder = Math.floor(Math.random() * 2) - ((hex_y+1) %2);
 	if ( hex_x + shoulder < 0) {
@@ -295,6 +302,46 @@ function hexBump( hex_x, hex_y ) {
 	hex_grid[hex_x][hex_y].hex_x = hex_x + shoulder;
 	hex_grid[hex_x][hex_y].hex_y = hex_y+1;
 	hex_grid[ hex_x + shoulder ][ hex_y + 1 ] = hex_grid[hex_x][hex_y];
+}
+
+// move things sideways (ignore nations for now)
+function hexShift( hex_x, hex_y, x_dir ) {
+	console.debug("hexShift:", hex_x, hex_y, x_dir);
+	hex_grid[hex_x][hex_y].sleep(false);
+
+	var ball = hex_grid[ hex_x ][ hex_y ];
+
+	// if direction isn't specified, randomly go left or right
+	var choose_random_dir = (typeof x_dir !== 'number');
+	if (choose_random_dir) {
+		x_dir = Math.random() < 0.5 ? -1 : 1;
+		console.debug("  Chose x_dir =", x_dir)
+	}
+
+	if (hex_x + x_dir < 0 || hex_x + x_dir >= hex_grid.length) {
+		if (choose_random_dir) {
+			x_dir *= -1; // go other way
+			console.debug(" actually nevermind, x_dir =", x_dir)
+		}
+		else {
+			// continue with hexBump on the current ball and stop this shift
+			console.debug("  Changing to hexBump")
+			hexBump(ball.hex_x, ball.hex_y);
+			return;
+		}
+	}
+	else {
+		var blocker = hex_grid[ hex_x + x_dir ][ hex_y ];
+		if (blocker !== null) {
+			// continue with hexShift on the next ball
+			hexShift(blocker.hex_x, blocker.hex_y, x_dir);
+		}
+	}
+
+	updateHex(
+		[hex_x, hex_y],
+		[hex_x + x_dir, hex_y]
+	);
 }
 
 
@@ -494,7 +541,6 @@ function operateOnAdjacent( hex, callback ) {
 	}
 }
 
-
 function explode(ball) {
 	if ( !ball || ball.destroyed ) { return; }
 
@@ -515,3 +561,36 @@ function explode(ball) {
 function triggerInvasion() {
 
 }
+
+
+	
+// Mouse/canvas stuff
+function getCartFromEvt(evt) {
+	var offset = $("#stage").offset();
+	return [evt.pageX - offset.left, evt.pageY - offset.top];
+}
+
+function getHexFromEvt(evt) {
+	var cart_coords = getCartFromEvt(evt);
+	return cart2hex(cart_coords[0], cart_coords[1]);
+}
+
+function onBallRightClick(callback) {
+	// Call callback with ball object
+	$(document).on('contextmenu', function(evt) {
+		evt.preventDefault();
+		var hex_coords = getHexFromEvt(evt);
+		var ball = hex_grid[hex_coords[0]][hex_coords[1]];
+		if (!ball) { return; }
+		callback(ball);
+		return false; // suppress context menu
+	})
+}
+
+
+// temporary hexShift test
+
+onBallRightClick(function(ball) {
+	console.log("Right click:", [ball.hex_x, ball.hex_y], ball);
+	hexShift(ball.hex_x, ball.hex_y);
+})
