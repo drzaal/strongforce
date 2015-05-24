@@ -4,7 +4,7 @@ var world;
 var hex_grid = [];
 var hex_arry = [];
 var renderer;
-var bubble_rate = 0.12;
+var bubble_rate = 0.22;
 var nuclear_energy_gain_rate = 0.0001;
 var freefall_timestep = 50; // uh maybe replace this with physicsjs timestep?
 var stageWidth = 600;
@@ -118,6 +118,12 @@ $(document).on('audioloadcomplete', function() {
 					else {
 						hexSlip( ball.hex_x, ball.hex_y );
 					}
+				}
+				ball.styles.fillStyle = "#" + ( ball.T * ( 0x010000 + 0x0100 + 0x01 )).toString(16);
+				if ( ball.deltaT > 100 ) {
+					ball.T += 5;
+					ball.view = null;
+					ball.deltaT = 0;
 				}
 			}
 			world.render();
@@ -242,13 +248,17 @@ function shallBubble() {
 		ball.hex_y = 0;
 		ball.atomic = false;
 		ball.power = 0;
+		ball.nation_color = NATIONS[NATIONS_INDEX[nation_bin]].color;
+		ball.T = 0;
+		ball.deltaT = 0;
 		ball.destroyed = false;
 		ball.nation = nation_bin;
 		initMotionState(ball);
 
 		world.add( ball );
 
-		hexGen( ball, channel, 0 );
+		// hexGen( ball, channel, 0 );
+		hexHeater( ball, channel, 0, 35 );
 		hex_arry.push(ball);
 
 		window.setTimeout(shallBubble, 50);
@@ -271,11 +281,45 @@ function hex2cart( i, j ) {
 	return [ x, y ];
 }
 
+/*
+ * HexGen produces a new object into a hex space. If the space is not available,
+ * Bump!
+ * @param Object hex The hex content, newly generated object.
+ * @param int hex_x The X index of the hex container.
+ * @param int hex_y The Y index of the hex container.
+ */
 function hexGen( hex, hex_x, hex_y ) {
 	if (hex_grid[hex_x][hex_y] != null) {
 		hexBump( hex_x, hex_y );	
 	}
 	hex_grid[hex_x][hex_y] = hex;
+}
+
+/*
+ * HexHeater adds an incremental value into hex space.
+ * A hex can contain only up to a maximum 'depth' of this value. If a hex space is overfilled, 
+ * it 'bumps' up to occupy additional space.
+ * Bump!
+ * @param Object hex The hex content, newly generated object.
+ * @param int hex_x The X index of the hex container.
+ * @param int hex_y The Y index of the hex container.
+ */
+function hexHeater( hex, hex_x, hex_y, delta_m ) {
+	if (hex_grid[hex_x][hex_y] != null) {
+		hex_grid[hex_x][hex_y].T += delta_m;
+		if (hex_grid[hex_x][hex_y].T >= 100) {
+			hexBump( hex_x, hex_y );	
+		}
+		else { 
+			hex_grid[hex_x][hex_y].view = null;
+			setTimeout( function() {
+				world.removeBody(hex);
+			}, 70);
+			return; 
+		} // Not enough to occupy a new position
+	}
+	hex_grid[hex_x][hex_y] = hex;
+	return;
 }
 
 function hexBump( hex_x, hex_y ) {
@@ -389,14 +433,15 @@ function hasBond( hex ) {
 	var i=0;
 	var imax = adjacent.length;
 
-	hex.power = 0;
+	hex.power = Math.max(0, (hex.T - 100) / 30);
 
 	var bond = false;
 	var force = false;
+	var the_hotness = false;
 	for ( i=0; i<imax; i++ ) {
 		var cell = adjacent[i];
 		// Don't allow invalid indices for checks.
-		if ( adjacent[i][0] < 0 || adjacent[i][1] < 0 || adjacent[i][0] >= hex_grid.length ) {
+		if ( cell[0] < 0 || cell[1] < 0 || cell[0] >= hex_grid.length ) {
 			continue;
 		}
 		var neighbor = hex_grid[cell[0]][cell[1]];
@@ -411,6 +456,14 @@ function hasBond( hex ) {
 				force = true;
 			}
 		}
+		if ( neighbor.T >= 100 ) {
+			the_hotness = true;
+		}
+	}
+
+	if ( the_hotness ) {
+		hex.deltaT += 1;
+		hex.view = null;
 	}
 
 	hex.force = force;
