@@ -4,11 +4,13 @@ var world;
 var hex_grid = [];
 var hex_arry = [];
 var renderer;
-var bubble_rate = 0.22;
+var bubble_rate = 0.42;
 var nuclear_energy_gain_rate = 0.0001;
 var freefall_timestep = 50; // uh maybe replace this with physicsjs timestep?
 var stageWidth = 600;
 var stageHeight = 400;
+var SFStage;
+var SFRenderer;
 
 var NATIONS = {
 	'Federal States of Vespuccica': {
@@ -48,15 +50,17 @@ $(function() {
 
 $(document).on('audioloadcomplete', function() {
 
+	console.log("At least we are loading audio.");
 	GameAudio.loop('background-music');
 
-	$.getScript("PhysicsJS-0.7.0/dist/physicsjs-full.min.js", function(){
+	$.getScript("pixi.min.js", function(){
 
-		world = Physics({
-			timestep: 1000.0 / 80,	
-			maxIPF: 16,
-			integrator: 'verlet'
-		});
+		SFStage = new PIXI.Stage( 0xFFFFFF );
+		SFRenderer = PIXI.autoDetectRenderer( stageWidth, stageHeight, { transparent: true, antialias: true } );
+		SFRenderer.view.className = "sf-stage";
+		document.body.appendChild(SFRenderer.view);
+
+		requestAnimationFrame( render );
 
 		var i, j;
 		var imax = Math.floor( stageWidth / 10 ) - 1;
@@ -67,71 +71,55 @@ $(document).on('audioloadcomplete', function() {
 				hex_grid[i][j] = null;
 			}
 		}
-		renderer = Physics.renderer('canvas', {
-			el: 'stage',
-			width: stageWidth + 'px',
-			height: stageHeight + 'px',
-			styles: {
-				'circle' : {
-					strokeStyle: '#542437',
-					lineWidth: 1,
-					fillStyle: '#cccccc',
-					angleIndicator: 'white',
-				}
-
-			}
-		});
-
-		var gravity = Physics.behavior('constant-acceleration', {
-			acc: { x : 0, y: 0.0004 } // this is the default
-		});
-		// world.add( gravity );
-
-		world.add( renderer );
-
-		world.on('step', function(){
+		setInterval(function(){
 			shallBubble();
 			var i=0;
 			var imax = hex_arry.length;
 			for (i=imax-1;i>=0;i--) {
 				var ball = hex_arry[i];
 				if (ball.destroyed) {
-					world.removeBody(ball);
+					SFStage.removeChild();
 					hex_arry.splice(i,1);
 					ball = null;
 					continue;
 				}
-				var pos = ball.state.pos;
+				var pos = { x:ball.x, y:ball.y };
 				ball_du = hex2cart( ball.hex_x, ball.hex_y );
 				// ball.state.pos.set( ball_du[0], ball_du[1] );
 				// ball.state.vel.set( 0, 0 );
 				if (ball.atomic && ball.hex_y == 0) {
-					ball.state.vel.set( (ball_du[0] - pos.x) / 320, (ball_du[1] - pos.y) /320 );
+					ball.vx = (ball_du[0] - pos.x) / 320;
+					ball.vy = (ball_du[1] - pos.y) / 320;
 				}
 				else {
-					ball.state.vel.set( (ball_du[0] - pos.x) / 40, (ball_du[1] - pos.y) /40 );
+					ball.vx = (ball_du[0] - pos.x) / 40
+					ball.vy = (ball_du[1] - pos.y) / 40;
 				}
-				if ( !hasBond( ball )) {
-					if (ball.force) { 
-						hexBump( ball.hex_x, ball.hex_y);
-					}
-					else {
-						hexSlip( ball.hex_x, ball.hex_y );
-					}
-				}
-				ball.styles.fillStyle = "#" + ( ball.T * ( 0x010000 + 0x0100 + 0x01 )).toString(16);
+
+				ball.x = ball.x + ball.vx * 8;
+				ball.y = ball.y + ball.vy * 8;
+
+				// if ( !hasBond( ball )) {
+				// 	if (ball.force) { 
+				// 		hexBump( ball.hex_x, ball.hex_y);
+				// 	}
+				// 	else {
+				// 		hexSlip( ball.hex_x, ball.hex_y );
+				// 	}
+				// }
+				ball.fillStyle = "#" + ( ball.T * ( 0x010000 + 0x0100 + 0x01 )).toString(16);
 				if ( ball.deltaT > 100 ) {
 					ball.T += 5;
 					ball.view = null;
 					ball.deltaT = 0;
 				}
 			}
-			world.render();
+			// RENDER FUNCTION! REPLACE THIS!
 
 			for (var nation in NATIONS) {
 				NATIONS[nation].energy.step();
 			}
-		});
+		},30);
 
 
 
@@ -140,11 +128,11 @@ $(document).on('audioloadcomplete', function() {
 
 		// constrain objects to these bounds
 		/*
-		world.add(Physics.behavior('edge-collision-detection', {
-			aabb: viewportBounds,
-			restitution: 0.69,
-			cof: 0.69
-		}));
+		 * world.add(Physics.behavior('edge-collision-detection', {
+		 * 	aabb: viewportBounds,
+		 * 	restitution: 0.69,
+		 * 	cof: 0.69
+		 * }));
 		*/
 		// world.add( Physics.behavior('body-collision-detection') );
 		// world.add( Physics.behavior('sweep-prune') );
@@ -152,13 +140,13 @@ $(document).on('audioloadcomplete', function() {
 		// ensure objects bounce when edge collision is detected
 		// world.add( Physics.behavior('body-impulse-response') );
 
-		Physics.util.ticker.on(function( time, dt ){
-			world.step( time );
-		});
+		// Physics.util.ticker.on(function( time, dt ){
+		// 	world.step( time );
+		// });
 
 		// start the ticker
-		Physics.util.ticker.start();
-		world.wakeUpAll();
+		// Physics.util.ticker.start();
+		// world.wakeUpAll();
 	});
 
 	$.getScript("nation.js", function(){ 
@@ -226,24 +214,26 @@ function shallBubble() {
 		var nation_bin = Math.floor( Math.random() * NATIONS_INDEX.length );
 		var bounds = getNationBounds(nation_bin);
 		var left = (bounds[0] + Math.random() * (bounds[1] - bounds[0]));
-		// console.log('left:', left);
-		// console.log('percentage:', left/stageWidth);
+		console.log(left);
 		var channel = Math.floor( (hex_grid.length-1) * left / stageWidth );
 		
 		var color = Math.random() * 0xFFFFFF;
 
-		var ball = Physics.body('rectangle', {
-			x: hex2cart(channel, 0)[0],
-			y: hex2cart(channel, 0)[1] + 40,
-			vx: 0,
-			vy: 0,
-			styles: {
-				fillStyle: NATIONS[NATIONS_INDEX[nation_bin]].color,
-			},
-			// radius: 4
-			width: 7,
-			height: 7
-		});
+		var ball = new PIXI.Graphics();
+
+		var pos = hex2cart(channel, 0);
+		ball.lineStyle( 2, 0x00FF00, 1);
+		ball.beginFill( NATIONS[NATIONS_INDEX[nation_bin]].color);
+		ball.drawCircle(
+			0,
+			0,
+			4
+		);
+		ball.x = pos[0];
+		ball.y = pos[1] + 40;
+		ball.vx = 0;
+		ball.vy = 0;
+
 		ball.hex_x = channel;
 		ball.hex_y = 0;
 		ball.atomic = false;
@@ -255,11 +245,13 @@ function shallBubble() {
 		ball.nation = nation_bin;
 		initMotionState(ball);
 
-		world.add( ball );
+		// REMOVING THE PHYSICS ENGINE
+		// world.add( ball );
 
 		// hexGen( ball, channel, 0 );
 		hexHeater( ball, channel, 0, 35 );
 		hex_arry.push(ball);
+		SFStage.addChild(ball);
 
 		window.setTimeout(shallBubble, 50);
 	}
@@ -277,7 +269,7 @@ function initMotionState(ball) {
  */
 function hex2cart( i, j ) {
 	var x = i*10 + (j%2)*5;
-	var y = $('#stage').height() - 104 - j*8;
+	var y = stageHeight - 104 - j*8;
 	return [ x, y ];
 }
 
@@ -313,7 +305,7 @@ function hexHeater( hex, hex_x, hex_y, delta_m ) {
 		else { 
 			hex_grid[hex_x][hex_y].view = null;
 			setTimeout( function() {
-				world.removeBody(hex);
+				SFStage.removeChild(hex);
 			}, 70);
 			return; 
 		} // Not enough to occupy a new position
@@ -331,7 +323,7 @@ function hexBump( hex_x, hex_y ) {
 		shoulder = hex_grid.length-1;
 	}
 
-	hex_grid[hex_x][hex_y].sleep(false);
+	// hex_grid[hex_x][hex_y].sleep(false);
 
 	if ( hex_grid[ hex_x + shoulder ][ hex_y + 1 ] != null ) {
 		hexBump(hex_x + shoulder, hex_y + 1);
@@ -484,7 +476,7 @@ function getNationBounds(index) {
 function isOutOfBounds(ball) {
 	// Is it in enemy territory??
 	if (!ball) { return false; }
-	var x = ball.state.pos.x;
+	var x = ball.x;
 	var bounds = getNationBounds(ball.nation)
 	return (x < bounds[0] || x > bounds[1]);
 }
@@ -567,4 +559,10 @@ function explode(ball) {
 
 function triggerInvasion() {
 
+}
+
+// I guess here is the frame rendering. It should occur concurrently to the actual running physics engine.
+function render() {
+	SFRenderer.render(SFStage);
+	requestAnimationFrame(render);
 }
