@@ -99,18 +99,25 @@ $(document).on('audioloadcomplete', function() {
 				ball.x = ball.x + ball.vx * 8;
 				ball.y = ball.y + ball.vy * 8;
 
-				// if ( !hasBond( ball )) {
-				// 	if (ball.force) { 
-				// 		hexBump( ball.hex_x, ball.hex_y);
-				// 	}
-				// 	else {
-				// 		hexSlip( ball.hex_x, ball.hex_y );
-				// 	}
-				// }
-				ball.fillStyle = "#" + ( ball.T * ( 0x010000 + 0x0100 + 0x01 )).toString(16);
+				if ( !hasBond( ball )) {
+					if (ball.force) { 
+						hexBump( ball.hex_x, ball.hex_y);
+					}
+					else {
+						hexSlip( ball.hex_x, ball.hex_y );
+					}
+				}
+				ball.fillStyle = ( ball.T * ( 0x010000 + 0x0100 + 0x01 ));
 				if ( ball.deltaT > 100 ) {
 					ball.T += 5;
-					ball.view = null;
+					ball.clear();
+					ball.lineStyle( 1, 0x444444, 1);
+					ball.beginFill( ball.fillStyle);
+					ball.drawCircle(
+						0,
+						0,
+						4
+					);
 					ball.deltaT = 0;
 				}
 			}
@@ -222,7 +229,7 @@ function shallBubble() {
 		var ball = new PIXI.Graphics();
 
 		var pos = hex2cart(channel, 0);
-		ball.lineStyle( 2, 0x00FF00, 1);
+		ball.lineStyle( 1, 0x444444, 1);
 		ball.beginFill( NATIONS[NATIONS_INDEX[nation_bin]].color);
 		ball.drawCircle(
 			0,
