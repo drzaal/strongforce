@@ -4,7 +4,7 @@ var world;
 var hex_grid = [];
 var hex_arry = [];
 var renderer;
-var bubble_rate = 0.42;
+var bubble_rate = 0;
 var nuclear_energy_gain_rate = 0.0001;
 var freefall_timestep = 50; // uh maybe replace this with physicsjs timestep?
 var stageWidth = 600;
@@ -15,16 +15,16 @@ var SFRenderer;
 var NATIONS = {
 	'Federal States of Vespuccica': {
 		energy: new Energy(100),
-		color: '#4262a2',
+		color: 0x4262a2,
 	},
 	'Democratic Just Peoples Republic of Something': {
 		player: true,
 		energy: new Energy(100, "#energy-guage-fill", true),
-		color: '#42a262',
+		color: 0x42a262,
 	},
 	'Not Communism': {
 		energy: new Energy(100),
-		color: '#a24262',
+		color: 0xa24262,
 	}
 };
 var NATIONS_INDEX = [
@@ -107,9 +107,15 @@ $(document).on('audioloadcomplete', function() {
 						hexSlip( ball.hex_x, ball.hex_y );
 					}
 				}
-				ball.fillStyle = ( ball.T * ( 0x010000 + 0x0100 + 0x01 ));
 				if ( ball.deltaT > 100 ) {
 					ball.T += 5;
+
+					// Calculates the temperature weighted RGB of a bubble, based on its base nation color
+					ball.fillStyle = (
+						(Math.min(Math.floor(ball.T/90 * (ball.nation_color >> 16 & 0xFF)), 0xFF) << 16) + 
+						(Math.min(Math.floor(ball.T/90 * (ball.nation_color >> 8 & 0xFF)), 0xFF) << 8) + 
+						(Math.min(Math.floor(ball.T/90 * (ball.nation_color & 0xFF)), 0xFF))
+					);
 					ball.clear();
 					ball.lineStyle( 1, 0x444444, 1);
 					ball.beginFill( ball.fillStyle);
@@ -221,7 +227,6 @@ function shallBubble() {
 		var nation_bin = Math.floor( Math.random() * NATIONS_INDEX.length );
 		var bounds = getNationBounds(nation_bin);
 		var left = (bounds[0] + Math.random() * (bounds[1] - bounds[0]));
-		console.log(left);
 		var channel = Math.floor( (hex_grid.length-1) * left / stageWidth );
 		
 		var color = Math.random() * 0xFFFFFF;
@@ -230,7 +235,7 @@ function shallBubble() {
 
 		var pos = hex2cart(channel, 0);
 		ball.lineStyle( 1, 0x444444, 1);
-		ball.beginFill( NATIONS[NATIONS_INDEX[nation_bin]].color);
+		ball.beginFill( "#010101" );
 		ball.drawCircle(
 			0,
 			0,
