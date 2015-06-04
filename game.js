@@ -4,13 +4,24 @@ var world;
 var hex_grid = [];
 var hex_arry = [];
 var renderer;
+
+// Control Variables
 var bubble_rate = 0;
+var control_rod_insertion = false;
+var control_rod_count = 1;
+
+var tunnel_stagger = 0.75;
+var tunnel_timer = 0.75;
 var nuclear_energy_gain_rate = 0.0001;
 var freefall_timestep = 50; // uh maybe replace this with physicsjs timestep?
 var stageWidth = 600;
 var stageHeight = 400;
+
+// Renderer stuff
 var SFStage;
 var SFRenderer;
+var render_stagger = 0; // Stagger our Redraws. This should reduce slowdown
+var render_stagger_max = 30;
 
 var NATIONS = {
 	'Federal States of Vespuccica': {
@@ -72,12 +83,30 @@ $(document).on('audioloadcomplete', function() {
 			}
 		}
 		setInterval(function(){
+			var sys_timer = (new Date()).getTime();
 			shallBubble();
+			if ( control_rod_insertion && control_rod_count > 0) {
+				control_rod_insertion = false;
+				control_rod_count -=1;
+				dropCarbonRod();
+			}
 			var i=0;
+			var trigger_tunnel = false;
+
+			render_stagger +=1;
+			if (render_stagger > render_stagger_max) {
+				render_stagger = 0;
+			}
+			if ((sys_timer - tunnel_timer) / 1000 > tunnel_stagger) {
+				tunnel_timer = sys_timer;
+				trigger_tunnel = true;
+			}
+
 			var imax = hex_arry.length;
 			for (i=imax-1;i>=0;i--) {
 				var ball = hex_arry[i];
 				if (ball.destroyed) {
+					ball.clear();
 					SFStage.removeChild();
 					hex_arry.splice(i,1);
 					ball = null;
@@ -85,19 +114,18 @@ $(document).on('audioloadcomplete', function() {
 				}
 				var pos = { x:ball.x, y:ball.y };
 				ball_du = hex2cart( ball.hex_x, ball.hex_y );
-				// ball.state.pos.set( ball_du[0], ball_du[1] );
-				// ball.state.vel.set( 0, 0 );
-				if (ball.atomic && ball.hex_y == 0) {
-					ball.vx = (ball_du[0] - pos.x) / 320;
-					ball.vy = (ball_du[1] - pos.y) / 320;
-				}
-				else {
-					ball.vx = (ball_du[0] - pos.x) / 40
+
+				if (ball.atomic == 'control' && ball.hex_y == 0) {
+					ball.vx = (ball_du[0] - pos.x) / 40;
 					ball.vy = (ball_du[1] - pos.y) / 40;
 				}
+				else {
+					ball.vx = (ball_du[0] - pos.x) / 5
+					ball.vy = (ball_du[1] - pos.y) / 5;
+				}
 
-				ball.x = ball.x + ball.vx * 8;
-				ball.y = ball.y + ball.vy * 8;
+				ball.x = ball.x + ball.vx;
+				ball.y = ball.y + ball.vy;
 
 				if ( !hasBond( ball )) {
 					if (ball.force) { 
@@ -107,24 +135,37 @@ $(document).on('audioloadcomplete', function() {
 						hexSlip( ball.hex_x, ball.hex_y );
 					}
 				}
+				if (ball.atomic == 'control' && trigger_tunnel == true) {
+					console.log("Fall, buddy!");
+					console.log(ball.power);
+					console.log(ball.deltaT);
+					console.log(ball.T);
+				}
 				if ( ball.deltaT > 100 ) {
 					ball.T += 5;
-
+					ball.deltaT = 0;
+				}
+				else if ( ball.deltaT < 0 ) {
+					ball.T -= 5;
+					ball.deltaT = 100;
+				}
+				if (ball.T < 0) { ball.T = 0; }
+				if ((render_stagger + i) % render_stagger_max == 0) {
+					var t_factor = ball.T * (1/90);
 					// Calculates the temperature weighted RGB of a bubble, based on its base nation color
 					ball.fillStyle = (
-						(Math.min(Math.floor(ball.T/90 * (ball.nation_color >> 16 & 0xFF)), 0xFF) << 16) + 
-						(Math.min(Math.floor(ball.T/90 * (ball.nation_color >> 8 & 0xFF)), 0xFF) << 8) + 
-						(Math.min(Math.floor(ball.T/90 * (ball.nation_color & 0xFF)), 0xFF))
+						(Math.min(Math.floor(t_factor * (ball.nation_color >> 16 & 0xFF)), 0xFF) << 16) + 
+						(Math.min(Math.floor(t_factor * (ball.nation_color >> 8 & 0xFF)), 0xFF) << 8) + 
+						(Math.min(Math.floor(t_factor * (ball.nation_color & 0xFF)), 0xFF))
 					);
 					ball.clear();
 					ball.lineStyle( 1, 0x444444, 1);
-					ball.beginFill( ball.fillStyle);
+					ball.beginFill( ball.fillStyle );
 					ball.drawCircle(
 						0,
 						0,
-						4
+						ball.rad
 					);
-					ball.deltaT = 0;
 				}
 			}
 			// RENDER FUNCTION! REPLACE THIS!
@@ -136,30 +177,6 @@ $(document).on('audioloadcomplete', function() {
 
 
 
-		// bounds of the window
-		// var viewportBounds = Physics.aabb(0, 0, stageWidth, stageHeight-20);
-
-		// constrain objects to these bounds
-		/*
-		 * world.add(Physics.behavior('edge-collision-detection', {
-		 * 	aabb: viewportBounds,
-		 * 	restitution: 0.69,
-		 * 	cof: 0.69
-		 * }));
-		*/
-		// world.add( Physics.behavior('body-collision-detection') );
-		// world.add( Physics.behavior('sweep-prune') );
-
-		// ensure objects bounce when edge collision is detected
-		// world.add( Physics.behavior('body-impulse-response') );
-
-		// Physics.util.ticker.on(function( time, dt ){
-		// 	world.step( time );
-		// });
-
-		// start the ticker
-		// Physics.util.ticker.start();
-		// world.wakeUpAll();
 	});
 
 	$.getScript("nation.js", function(){ 
@@ -217,6 +234,59 @@ function main() {
 	shallBubble();
 }
 
+
+/**
+ * Create our Control Rod Bubbles.
+ */
+function dropCarbonRod() {
+	// Choose only a channel that is within a particular nation
+	var nation_bin = Math.floor( Math.random() * NATIONS_INDEX.length );
+	var bounds = getNationBounds(nation_bin);
+	var left = (bounds[0] + Math.random() * (bounds[1] - bounds[0]));
+	var channel;
+	
+	for (i=0; i<NATIONS_INDEX.length; i++) {
+		channel = Math.floor((i+0.5) / NATIONS_INDEX.length * hex_grid.length);
+		var color = 0x0;
+
+		var ball = new PIXI.Graphics();
+
+		var pos = hex2cart(channel, hex_grid[0].length-1);
+		ballrad = 8;
+		ball.lineStyle( 1, 0x444444, 1);
+		ball.beginFill( "#010101" );
+		ball.drawCircle(
+			0,
+			0,
+			ballrad
+		);
+		ball.x = pos[0];
+		ball.y = pos[1];
+		ball.vx = 0;
+		ball.vy = 0;
+		ball.rad = 8;
+
+		ball.hex_x = channel;
+		ball.hex_y = 0;
+		ball.atomic = 'control';
+		ball.power = 0;
+		ball.nation_color = NATIONS[NATIONS_INDEX[i]].color;
+		ball.T = 0;
+		ball.deltaT = 0;
+		ball.destroyed = false;
+		ball.nation = i;
+		initMotionState(ball);
+
+		hexGen( ball, channel, 0 );
+		hex_arry.push(ball);
+		SFStage.addChild(ball);
+	}
+
+}
+
+/**
+ * Show Bubble bubbles into the gamefield to produce nukular bubbles
+ */
 function shallBubble() {
 	var bubbler = Math.random();
 	if ( bubbler < bubble_rate ) {
@@ -232,6 +302,7 @@ function shallBubble() {
 		var color = Math.random() * 0xFFFFFF;
 
 		var ball = new PIXI.Graphics();
+		var ballrad = 4;
 
 		var pos = hex2cart(channel, 0);
 		ball.lineStyle( 1, 0x444444, 1);
@@ -239,16 +310,17 @@ function shallBubble() {
 		ball.drawCircle(
 			0,
 			0,
-			4
+			ballrad
 		);
 		ball.x = pos[0];
 		ball.y = pos[1] + 40;
 		ball.vx = 0;
 		ball.vy = 0;
+		ball.rad = ballrad;
 
 		ball.hex_x = channel;
 		ball.hex_y = 0;
-		ball.atomic = false;
+		ball.atomic = 'fissile';
 		ball.power = 0;
 		ball.nation_color = NATIONS[NATIONS_INDEX[nation_bin]].color;
 		ball.T = 0;
@@ -293,6 +365,9 @@ function hex2cart( i, j ) {
  * @param int hex_y The Y index of the hex container.
  */
 function hexGen( hex, hex_x, hex_y ) {
+	console.log(hex);
+	console.log(hex_x);
+	console.log(hex_y);
 	if (hex_grid[hex_x][hex_y] != null) {
 		hexBump( hex_x, hex_y );	
 	}
@@ -310,17 +385,22 @@ function hexGen( hex, hex_x, hex_y ) {
  */
 function hexHeater( hex, hex_x, hex_y, delta_m ) {
 	if (hex_grid[hex_x][hex_y] != null) {
-		hex_grid[hex_x][hex_y].T += delta_m;
-		if (hex_grid[hex_x][hex_y].T >= 100) {
+		if (hex_grid[hex_x][hex_y].atomic == 'fissile') {
+			hex_grid[hex_x][hex_y].T += delta_m;
+			if (hex_grid[hex_x][hex_y].T >= 100) {
+				hexBump( hex_x, hex_y );	
+			}
+			else { 
+				hex_grid[hex_x][hex_y].view = null;
+				setTimeout( function() {
+					SFStage.removeChild(hex);
+				}, 70);
+				return; 
+			} // Not enough to occupy a new position
+		}
+		else {
 			hexBump( hex_x, hex_y );	
 		}
-		else { 
-			hex_grid[hex_x][hex_y].view = null;
-			setTimeout( function() {
-				SFStage.removeChild(hex);
-			}, 70);
-			return; 
-		} // Not enough to occupy a new position
 	}
 	hex_grid[hex_x][hex_y] = hex;
 	return;
@@ -421,7 +501,7 @@ function hasBond( hex ) {
 	hex.force = false;
 
 	// Nukes never bond???
-	if (hex.atomic) { return false; }
+	if (hex.atomic == 'control') { return false; }
 
 	hex_x = hex.hex_x;
 	hex_y = hex.hex_y;
@@ -437,7 +517,7 @@ function hasBond( hex ) {
 	var i=0;
 	var imax = adjacent.length;
 
-	hex.power = Math.max(0, (hex.T - 100) / 30);
+	hex.power = Math.max(0, Math.ceil((hex.T - 100) / 30));
 
 	var bond = false;
 	var force = false;
@@ -455,6 +535,8 @@ function hasBond( hex ) {
 		if ( neighbor.power > hex.power) {
 			if ( neighbor.nation == hex.nation ) {
 				hex.power = neighbor.power - 1;
+				hex.deltaT +=2;
+				neighbor.deltaT -= 2;
 			}
 			else if ( i >= 2 ) {
 				force = true;
@@ -462,6 +544,9 @@ function hasBond( hex ) {
 		}
 		if ( neighbor.T >= 100 ) {
 			the_hotness = true;
+		}
+		if (neighbor.atomic == 'control') {
+			hex.deltaT-=8;
 		}
 	}
 
@@ -504,7 +589,7 @@ function isTransitioningOutOfFreefall(ball) {
 }
 
 function isInFreefall(ball) {
-	var rowoffset = hex_y%2;
+	var rowoffset = ball.hex_y%2;
 	var check_these_neighbors = [[-1+rowoffset, -1], [0+rowoffset, -1], [0, -2]];
 
 	var freefall = true;
@@ -555,7 +640,7 @@ function operateOnAdjacent( hex, callback ) {
 function explode(ball) {
 	if ( !ball || ball.destroyed ) { return; }
 
-	if (ball.atomic) {
+	if (ball.T > 50) {
 		GameAudio.playSound("explodenuke");
 		ball.destroyed = true;
 		operateOnAdjacent( ball, explode );
