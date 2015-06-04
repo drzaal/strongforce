@@ -4,6 +4,7 @@ Energy = function(start_level, display_selector, is_player) {
   this.min = 0;
   this.drain_rate = 0.03; // percent per step
   this.display_selector = display_selector;
+  this.is_player = is_player;
   this.nuclear_rate = 0;
 }
 
@@ -16,7 +17,7 @@ Energy.prototype.add = function(amount) {
 Energy.prototype.drain = function(amount) {
   this.level = Math.max(this.level - amount, this.min);
   this.display();
-  if (this.level === this.min && is_player) {
+  if (this.level === this.min && this.is_player) {
     Events.lose();
   }
 }

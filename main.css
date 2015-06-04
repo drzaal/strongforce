@@ -40,7 +40,7 @@ body {
 	width: 100%;
 	bottom:0px;
 	background-color: black;
-	height: 20px;
+	height: 64px;
 	margin: 0px;
 }
 
@@ -109,4 +109,42 @@ body {
 	transition: all 3s ease-in;
 	background-color: rgba(0, 0, 0, 0.89);
 	color: white;
+}
+
+.ui_control.button_control {
+	background: url('assets/controls.png');
+	background-position: -64px 0px;
+	background-size: 256px 128px;
+}
+.dial_control {
+	background: url('assets/controls.png');
+	background-position: -128px 0px;
+	background-size: 256px 128px;
+}
+.ui_control.lever_control {
+	background: url('assets/controls.png');
+	background-position: 0px 0px;
+	height: 12px;
+	background-size: 256px 128px;
+}
+.control_bin.lever_control_bin {
+	background: url('assets/controls.png');
+	background-position: 0px -64px;
+	background-size: 256px 128px;
+}
+.control_bin {
+	width: 64px;
+	height: 64px;
+	position: relative;
+	display: inline;
+	display: inline-block;
+	vertical-align: top;
+}
+
+.ui_control {
+	width: 64px;
+	height: 64px;
+	position: relative;
+	display: inline;
+	display: inline-block;
 }
