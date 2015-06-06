@@ -38,8 +38,20 @@ function control_drag(e) {
 	
 	if (active_control == e.currentTarget ) {
 		if ( control_id == 'ui-control-0' ) {
-			bubble_rate += ((e.offsetY-3) / 64);
-			$(e.target).css({ 'margin-top': Math.floor(bubble_rate * 64)+'px'});
+			var parent_container = $('#'+control_id);
+			var center_u = { x: parent_container.width() / 2, y: parent_container.height() / 2 };
+			var input_r = { x: e.offsetX - center_u.x, y: e.offsetY - center_u.y }
+			var delta_theta = 180-180 / Math.PI * Math.atan2( input_r.x, input_r.y );
+			console.log(delta_theta);
+			coolant_rate += (delta_theta) / 40;
+			if (coolant_rate < 0) coolant_rate += 360/40;
+			if (coolant_rate >= 360/40) coolant_rate -= 360/40;
+			console.log(coolant_rate);
+			$(e.target).css({
+				'-ms-transform': 'rotate('+40*coolant_rate+'deg)',
+				'-webkit-transform': 'rotate('+40*coolant_rate+'deg)',
+				'transform': 'rotate('+40*coolant_rate+'deg)',
+			});
 		}
 		if ( control_id == 'ui-control-2' ) {
 			bubble_rate += ((e.offsetY-3) / 64);
