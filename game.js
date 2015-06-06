@@ -3,6 +3,7 @@ var NATIONS_COUNT = 3;
 var world;
 var hex_grid = [];
 var hex_arry = [];
+var sfx_arry = [];
 var renderer;
 
 // Control Variables
@@ -103,12 +104,22 @@ $(document).on('audioloadcomplete', function() {
 				trigger_tunnel = true;
 			}
 
-			var imax = hex_arry.length;
+			var imax;
+			imax = sfx_arry.length;
+			for (i=imax-1;i>=0;i--) {
+				var sfx = sfx_arry[i];
+				if (sfx.destroyed) {
+					SFStage.removeChild(sfx);
+					sfx_arry.splice(i,1);
+					sfx = null;
+					continue;
+				}
+			}
+			imax = hex_arry.length;
 			for (i=imax-1;i>=0;i--) {
 				var ball = hex_arry[i];
 				if (ball.destroyed) {
-					ball.clear();
-					SFStage.removeChild();
+					SFStage.removeChild(ball);
 					hex_arry.splice(i,1);
 					ball = null;
 					continue;
@@ -152,7 +163,7 @@ $(document).on('audioloadcomplete', function() {
 				}
 				if (ball.T < 0) { ball.T = 0; }
 				if ((render_stagger + i) % render_stagger_max == 0) {
-					var t_factor = ball.T * (1/90);
+					var t_factor = ball.T * (1/70);
 					// Calculates the temperature weighted RGB of a bubble, based on its base nation color
 					ball.fillStyle = (
 						(Math.min(Math.floor(t_factor * (ball.nation_color >> 16 & 0xFF)), 0xFF) << 16) + 
@@ -167,6 +178,9 @@ $(document).on('audioloadcomplete', function() {
 						0,
 						ball.rad
 					);
+				}
+				if (ball.T > 350) {
+					explode(ball);
 				}
 			}
 			// RENDER FUNCTION! REPLACE THIS!
@@ -531,13 +545,13 @@ function hasBond( hex ) {
 		}
 		var neighbor = hex_grid[cell[0]][cell[1]];
 		if (neighbor == null) {
+			hex.deltaT -=2;
 			continue;
 		}
 		if ( neighbor.power > hex.power) {
 			if ( neighbor.nation == hex.nation ) {
 				hex.power = neighbor.power - 1;
-				hex.deltaT +=2;
-				neighbor.deltaT -= 2;
+				if ( i < 2 ) { bond = true }
 			}
 			else if ( i >= 2 ) {
 				force = true;
@@ -545,6 +559,15 @@ function hasBond( hex ) {
 		}
 		if ( neighbor.T >= 100 ) {
 			the_hotness = true;
+			hex.deltaT +=3;
+			if (hex.T < 100){
+				hex.deltaT +=8;
+				neighbor.deltaT -= 8;
+			}
+			if (neighbor.T - hex.T > 60) {
+				hex.deltaT +=2;
+				neighbor.deltaT -= 2;
+			}
 		}
 		if (neighbor.atomic == 'control') {
 			hex.deltaT-=8;
@@ -552,18 +575,13 @@ function hasBond( hex ) {
 	}
 
 	if ( the_hotness ) {
-		hex.deltaT += 1;
+		hex.deltaT += 2;
 		hex.view = null;
 	}
 
 	hex.force = force;
 	
-	if (hex.power > 0) {
-		return true;
-	}
-	else {
-		return false;
-	}
+	return bond;
 }
 
 function getNationBounds(index) {
@@ -641,7 +659,17 @@ function operateOnAdjacent( hex, callback ) {
 function explode(ball) {
 	if ( !ball || ball.destroyed ) { return; }
 
-	if (ball.T > 50) {
+	var boom = new PIXI.Text('B\xDCM', { font:(ball.power*2+8)+"px Arial", fill: 'red' });
+	boom.x = ball.x - boom.width/2;
+	boom.y = ball.y - boom.height/2;
+	boom.destroyed=false;
+	sfx_arry.push(boom);
+	SFStage.addChild(boom);
+	setTimeout(function() {
+		boom.destroyed = true;
+	}, 45);
+
+	if (ball.T > 240) {
 		GameAudio.playSound("explodenuke");
 		ball.destroyed = true;
 		operateOnAdjacent( ball, explode );
