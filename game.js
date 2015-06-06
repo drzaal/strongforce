@@ -6,6 +6,7 @@ var hex_arry = [];
 var renderer;
 
 // Control Variables
+var coolant_rate = 0;
 var bubble_rate = 0;
 var control_rod_insertion = false;
 var control_rod_count = 1;
