@@ -12,8 +12,8 @@ var bubble_rate = 0;
 var control_rod_insertion = false;
 var control_rod_count = 1;
 
-var tunnel_stagger = 0.75;
-var tunnel_timer = 0.75;
+var tunnel_stagger = 0.45;
+var tunnel_timer = 0;
 var nuclear_energy_gain_rate = 0.0001;
 var freefall_timestep = 50; // uh maybe replace this with physicsjs timestep?
 var stageWidth = 600;
@@ -143,7 +143,7 @@ $(document).on('audioloadcomplete', function() {
 					if (ball.force) { 
 						hexBump( ball.hex_x, ball.hex_y);
 					}
-					else {
+					else if (trigger_tunnel) {
 						hexSlip( ball.hex_x, ball.hex_y );
 					}
 				}
@@ -155,11 +155,11 @@ $(document).on('audioloadcomplete', function() {
 				}
 				if ( ball.deltaT > 100 ) {
 					ball.T += 5;
-					ball.deltaT = 0;
+					ball.deltaT -= 100;
 				}
 				else if ( ball.deltaT < 0 ) {
 					ball.T -= 5;
-					ball.deltaT = 100;
+					ball.deltaT += 100;
 				}
 				if (ball.T < 0) { ball.T = 0; }
 				if ((render_stagger + i) % render_stagger_max == 0) {
@@ -202,6 +202,7 @@ $(document).on('audioloadcomplete', function() {
 		// });
 
 		$('.nation-state[data-nation=1]').click( function(e) {
+			return;
 			GameAudio.playSound('newnuke');
 			var ball = Physics.body('circle', {
 				x: e.clientX,
@@ -282,7 +283,7 @@ function dropCarbonRod() {
 		ball.rad = 8;
 
 		ball.hex_x = channel;
-		ball.hex_y = 0;
+		ball.hex_y = hex_grid[0].length-1;
 		ball.atomic = 'control';
 		ball.power = 0;
 		ball.nation_color = NATIONS[NATIONS_INDEX[i]].color;
@@ -292,7 +293,7 @@ function dropCarbonRod() {
 		ball.nation = i;
 		initMotionState(ball);
 
-		hexGen( ball, channel, 0 );
+		hexGen( ball, channel, ball.hex_y );
 		hex_arry.push(ball);
 		SFStage.addChild(ball);
 	}
@@ -356,6 +357,7 @@ function shallBubble() {
 	}
 }
 
+/**/
 function initMotionState(ball) {
 	ball.motion_state = {
 		freefall: false,
@@ -408,7 +410,7 @@ function hexHeater( hex, hex_x, hex_y, delta_m ) {
 			else { 
 				hex_grid[hex_x][hex_y].view = null;
 				setTimeout( function() {
-					SFStage.removeChild(hex);
+					hex.destroyed=true;
 				}, 70);
 				return; 
 			} // Not enough to occupy a new position
@@ -445,34 +447,38 @@ function hexSlip( hex_x, hex_y ) {
 	var ball = hex_grid[hex_x][hex_y];
 	if (ball === null) { return; }
 
-	if (isTransitioningToFreefall(ball)) {
-		// TODO: distinguish between falling left and right (set ball.motion_state.fall_dir)
-		// async so it doesn't interrupt world loop
-		window.setTimeout(function() {
-			hexFreefall(hex_x, hex_y);
-		}, 0);
-		return;
-	}
-
-	if (ball.motion_state.freefall) {
+	if (isInFreefall(ball)) {
+		hexFreefall(hex_x, hex_y);
 		// no need to call hexFreefall
 		return;
 	}
 
 	var left_x = hex_x - ((hex_y+1)%2);
 	if ( hex_y > 0 ){
+		var open_pos = 0
 		if ( left_x > 0 && hex_grid[left_x][hex_y-1] == null ) {
+			open_pos += 1;
+		}
+		else if ( left_x+1 < hex_grid.length && hex_grid[left_x+1][hex_y-1] == null ) {
+			open_pos += 2;
+		}
+		if ( open_pos == 3 ) {
+			if (Math.random() < 0.5) { open_pos = 1; }
+			else { open_pos = 2; }
+		}
+		if (open_pos == 1) {
 			hex_grid[hex_x][hex_y].hex_x = left_x;
 			hex_grid[hex_x][hex_y].hex_y -= 1;
 			hex_grid[left_x][hex_y-1] = hex_grid[hex_x][hex_y];
 			hex_grid[hex_x][hex_y] = null;
 		}
-		else if ( left_x+1 < hex_grid.length && hex_grid[left_x+1][hex_y-1] == null ) {
+		else if (open_pos == 2) {
 			hex_grid[hex_x][hex_y].hex_x = left_x+1;
 			hex_grid[hex_x][hex_y].hex_y -= 1;
 			hex_grid[left_x+1][hex_y-1] = hex_grid[hex_x][hex_y];
 			hex_grid[hex_x][hex_y] = null;
 		}
+
 	}
 
 }
@@ -496,13 +502,10 @@ function hexFreefall( hex_x, hex_y ) {
 	// do the freefall
 	updateHex(
 		[hex_x, hex_y],
-		[hex_x + ball.motion_state.fall_dir, hex_y - 1]
+		[hex_x, hex_y - 2]
 	);
 	// hex_grid[hex_x][hex_y].sleep(false); // maybe needed?
 
-	window.setTimeout(function() {
-		hexFreefall(hex_x + ball.motion_state.fall_dir, hex_y - 1);
-	}, freefall_timestep);
 }
 
 function updateHex(old_hex, new_hex) {
@@ -564,13 +567,17 @@ function hasBond( hex ) {
 				hex.deltaT +=8;
 				neighbor.deltaT -= 8;
 			}
-			if (neighbor.T - hex.T > 60) {
+			else if (neighbor.T - hex.T > 120) {
+				hex.deltaT +=4;
+				neighbor.deltaT -= 4;
+			}
+			else if (neighbor.T - hex.T > 60) {
 				hex.deltaT +=2;
 				neighbor.deltaT -= 2;
 			}
 		}
 		if (neighbor.atomic == 'control') {
-			hex.deltaT-=8;
+			hex.deltaT-=16*( 1 + hex.power );
 		}
 	}
 
