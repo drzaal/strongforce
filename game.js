@@ -14,6 +14,10 @@ var control_rod_count = 1;
 
 var tunnel_stagger = 0.45;
 var tunnel_timer = 0;
+var freefall_stagger = 0.05;
+var freefall_timer = 0.45;
+var float_stagger = 0.35;
+var float_timer = 0;
 var nuclear_energy_gain_rate = 0.0001;
 var freefall_timestep = 50; // uh maybe replace this with physicsjs timestep?
 var stageWidth = 600;
@@ -86,7 +90,8 @@ $(document).on('audioloadcomplete', function() {
 		}
 		setInterval(function(){
 			var sys_timer = (new Date()).getTime();
-			shallBubble();
+			shallBubble("fissile", bubble_rate);
+			shallBubble("coolant", 1/2 * coolant_rate);
 			if ( control_rod_insertion && control_rod_count > 0) {
 				control_rod_insertion = false;
 				control_rod_count -=1;
@@ -94,6 +99,8 @@ $(document).on('audioloadcomplete', function() {
 			}
 			var i=0;
 			var trigger_tunnel = false;
+			var trigger_float = false;
+			var trigger_freefall = false;
 
 			render_stagger +=1;
 			if (render_stagger > render_stagger_max) {
@@ -102,6 +109,14 @@ $(document).on('audioloadcomplete', function() {
 			if ((sys_timer - tunnel_timer) / 1000 > tunnel_stagger) {
 				tunnel_timer = sys_timer;
 				trigger_tunnel = true;
+			}
+			if ((sys_timer - float_timer) / 1000 > float_stagger) {
+				float_timer = sys_timer;
+				trigger_float = true;
+			}
+			if ((sys_timer - freefall_timer) / 1000 > freefall_stagger) {
+				freefall_timer = sys_timer;
+				trigger_freefall = true;
 			}
 
 			var imax;
@@ -124,34 +139,26 @@ $(document).on('audioloadcomplete', function() {
 					ball = null;
 					continue;
 				}
-				var pos = { x:ball.x, y:ball.y };
-				ball_du = hex2cart( ball.hex_x, ball.hex_y );
-
-				if (ball.atomic == 'control' && ball.hex_y == 0) {
-					ball.vx = (ball_du[0] - pos.x) / 40;
-					ball.vy = (ball_du[1] - pos.y) / 40;
-				}
-				else {
-					ball.vx = (ball_du[0] - pos.x) / 5
-					ball.vy = (ball_du[1] - pos.y) / 5;
-				}
-
-				ball.x = ball.x + ball.vx;
-				ball.y = ball.y + ball.vy;
-
-				if ( !hasBond( ball )) {
-					if (ball.force) { 
-						hexBump( ball.hex_x, ball.hex_y);
+				
+				if ( ball.atomic == 'coolant' ) {
+					hasBond(ball);
+					if (trigger_float) {
+						hexGen( null, ball.hex_x, ball.hex_y);
 					}
-					else if (trigger_tunnel) {
+				}
+				else if ( ball.atomic == 'control' ) {
+					if (trigger_freefall) {
 						hexSlip( ball.hex_x, ball.hex_y );
 					}
 				}
-				if (ball.atomic == 'control' && trigger_tunnel == true) {
-					console.log("Fall, buddy!");
-					console.log(ball.power);
-					console.log(ball.deltaT);
-					console.log(ball.T);
+				else if ( ball.atomic == 'fissile' ) {
+					hasBond( ball );
+					if (ball.force) { 
+						hexBump( ball.hex_x, ball.hex_y);
+					}
+					else if (trigger_freefall) {
+						hexSlip( ball.hex_x, ball.hex_y );
+					}
 				}
 				if ( ball.deltaT > 100 ) {
 					ball.T += 5;
@@ -162,22 +169,48 @@ $(document).on('audioloadcomplete', function() {
 					ball.deltaT += 100;
 				}
 				if (ball.T < 0) { ball.T = 0; }
+
+				// Hex position handled, now get real position
+				var pos = { x:ball.x, y:ball.y };
+				ball_du = hex2cart( ball.hex_x, ball.hex_y );
+
+				// This is the snappiness of our balls
+				ball.vx = (ball_du[0] - pos.x) / 5
+				ball.vy = (ball_du[1] - pos.y) / 5;
+
+				ball.x = ball.x + ball.vx;
+				ball.y = ball.y + ball.vy;
+
+				// Now render
 				if ((render_stagger + i) % render_stagger_max == 0) {
-					var t_factor = ball.T * (1/70);
-					// Calculates the temperature weighted RGB of a bubble, based on its base nation color
-					ball.fillStyle = (
-						(Math.min(Math.floor(t_factor * (ball.nation_color >> 16 & 0xFF)), 0xFF) << 16) + 
-						(Math.min(Math.floor(t_factor * (ball.nation_color >> 8 & 0xFF)), 0xFF) << 8) + 
-						(Math.min(Math.floor(t_factor * (ball.nation_color & 0xFF)), 0xFF))
-					);
-					ball.clear();
-					ball.lineStyle( 1, 0x444444, 1);
-					ball.beginFill( ball.fillStyle );
-					ball.drawCircle(
-						0,
-						0,
-						ball.rad
-					);
+					if (ball.atomic == 'coolant') {
+						ball.fillStyle = ( 0xDDDD22 );
+						ball.clear();
+						ball.lineStyle( 1, 0x444444, 1);
+						ball.beginFill( ball.fillStyle );
+						ball.drawCircle(
+							0,
+							0,
+							ball.rad
+						);
+					}
+					else {
+						var t_factor = ball.T * (1/70);
+						// Calculates the temperature weighted RGB of a bubble, based on its base nation color
+						ball.fillStyle = (
+							(Math.min(Math.floor(t_factor * (ball.nation_color >> 16 & 0xFF)), 0xFF) << 16) + 
+							(Math.min(Math.floor(t_factor * (ball.nation_color >> 8 & 0xFF)), 0xFF) << 8) + 
+							(Math.min(Math.floor(t_factor * (ball.nation_color & 0xFF)), 0xFF))
+						);
+						ball.clear();
+						ball.lineStyle( 1, 0x444444, 1);
+						ball.beginFill( ball.fillStyle );
+						ball.drawCircle(
+							0,
+							0,
+							ball.rad
+						);
+					}
 				}
 				if (ball.T > 350) {
 					explode(ball);
@@ -206,7 +239,7 @@ $(document).on('audioloadcomplete', function() {
 			GameAudio.playSound('newnuke');
 			var ball = Physics.body('circle', {
 				x: e.clientX,
-				y: $('#stage').height(),
+				y: $('#sf-stage').height(),
 				mass: 0.6,
 				restitution: 0.4,
 				vx: (0.04 * Math.random()) - 0.02,
@@ -244,13 +277,6 @@ $(document).on('audioloadcomplete', function() {
 	//setInterval( main, 20 );
 })
 
-
-function main() {
-	/* bubbleMath.random(); */
-	shallBubble();
-}
-
-
 /**
  * Create our Control Rod Bubbles.
  */
@@ -270,7 +296,7 @@ function dropCarbonRod() {
 		var pos = hex2cart(channel, hex_grid[0].length-1);
 		ballrad = 8;
 		ball.lineStyle( 1, 0x444444, 1);
-		ball.beginFill( "#010101" );
+		ball.beginFill( 0x010101 );
 		ball.drawCircle(
 			0,
 			0,
@@ -303,9 +329,9 @@ function dropCarbonRod() {
 /**
  * Show Bubble bubbles into the gamefield to produce nukular bubbles
  */
-function shallBubble() {
+function shallBubble(atomic_type, rate) {
 	var bubbler = Math.random();
-	if ( bubbler < bubble_rate ) {
+	if ( bubbler < rate ) {
 
 		GameAudio.playSound('bubbleup');
 
@@ -318,11 +344,20 @@ function shallBubble() {
 		var color = Math.random() * 0xFFFFFF;
 
 		var ball = new PIXI.Graphics();
-		var ballrad = 4;
+		var ballrad;
 
 		var pos = hex2cart(channel, 0);
 		ball.lineStyle( 1, 0x444444, 1);
-		ball.beginFill( "#010101" );
+		
+		if (atomic_type == 'coolant') {
+			ball.beginFill( 0xdddd22 );
+			ballrad = 3;
+		}
+		else {
+			ball.beginFill( 0x010101 );
+			ballrad = 4;
+		}
+
 		ball.drawCircle(
 			0,
 			0,
@@ -336,7 +371,7 @@ function shallBubble() {
 
 		ball.hex_x = channel;
 		ball.hex_y = 0;
-		ball.atomic = 'fissile';
+		ball.atomic = atomic_type; // 'fissile';
 		ball.power = 0;
 		ball.nation_color = NATIONS[NATIONS_INDEX[nation_bin]].color;
 		ball.T = 0;
@@ -348,12 +383,12 @@ function shallBubble() {
 		// REMOVING THE PHYSICS ENGINE
 		// world.add( ball );
 
-		// hexGen( ball, channel, 0 );
-		hexHeater( ball, channel, 0, 35 );
+		if (ball.atomic=='coolant') { hexGen( ball, channel, 0 ); }
+		else if (ball.atomic=='fissile') { hexHeater( ball, channel, 0, 35 ); }
 		hex_arry.push(ball);
 		SFStage.addChild(ball);
 
-		window.setTimeout(shallBubble, 50);
+		shallBubble(atomic_type);
 	}
 }
 
@@ -374,6 +409,12 @@ function hex2cart( i, j ) {
 	return [ x, y ];
 }
 
+function cart2hex( x, y ) {
+	var j = Math.floor((y - $("#sf-stage").height() + 104) / -8);
+	var i = Math.floor((x - (j%2)*5)/10);
+	return [ i, j ]
+}
+
 /*
  * HexGen produces a new object into a hex space. If the space is not available,
  * Bump!
@@ -382,9 +423,6 @@ function hex2cart( i, j ) {
  * @param int hex_y The Y index of the hex container.
  */
 function hexGen( hex, hex_x, hex_y ) {
-	console.log(hex);
-	console.log(hex_x);
-	console.log(hex_y);
 	if (hex_grid[hex_x][hex_y] != null) {
 		hexBump( hex_x, hex_y );	
 	}
@@ -423,16 +461,22 @@ function hexHeater( hex, hex_x, hex_y, delta_m ) {
 	return;
 }
 
+// move things upwards
 function hexBump( hex_x, hex_y ) {
+	
+	if ( hex_y + 1 >= hex_grid[hex_x].length) {
+		hex_grid[hex_x][hex_y].destroyed = true;
+		hex_grid[hex_x][hex_y] = null;
+		return;
+	}
+
 	var shoulder = Math.floor(Math.random() * 2) - ((hex_y+1) %2);
 	if ( hex_x + shoulder < 0) {
 		shoulder = 0;
 	}
 	if ( hex_x + shoulder >= hex_grid.length) {
-		shoulder = hex_grid.length-1;
+		shoulder = 0;
 	}
-
-	// hex_grid[hex_x][hex_y].sleep(false);
 
 	if ( hex_grid[ hex_x + shoulder ][ hex_y + 1 ] != null ) {
 		hexBump(hex_x + shoulder, hex_y + 1);
@@ -440,6 +484,45 @@ function hexBump( hex_x, hex_y ) {
 	hex_grid[hex_x][hex_y].hex_x = hex_x + shoulder;
 	hex_grid[hex_x][hex_y].hex_y = hex_y+1;
 	hex_grid[ hex_x + shoulder ][ hex_y + 1 ] = hex_grid[hex_x][hex_y];
+}
+
+// move things sideways (ignore nations for now)
+function hexShift( hex_x, hex_y, x_dir ) {
+	hex_grid[hex_x][hex_y].sleep(false);
+
+	var ball = hex_grid[ hex_x ][ hex_y ];
+
+	// if direction isn't specified, randomly go left or right
+	var choose_random_dir = (typeof x_dir !== 'number');
+	if (choose_random_dir) {
+		x_dir = Math.random() < 0.5 ? -1 : 1;
+		console.debug("  Chose x_dir =", x_dir)
+	}
+
+	if (hex_x + x_dir < 0 || hex_x + x_dir >= hex_grid.length) {
+		if (choose_random_dir) {
+			x_dir *= -1; // go other way
+			console.debug(" actually nevermind, x_dir =", x_dir)
+		}
+		else {
+			// continue with hexBump on the current ball and stop this shift
+			console.debug("  Changing to hexBump")
+			hexBump(ball.hex_x, ball.hex_y);
+			return;
+		}
+	}
+	else {
+		var blocker = hex_grid[ hex_x + x_dir ][ hex_y ];
+		if (blocker !== null) {
+			// continue with hexShift on the next ball
+			hexShift(blocker.hex_x, blocker.hex_y, x_dir);
+		}
+	}
+
+	updateHex(
+		[hex_x, hex_y],
+		[hex_x + x_dir, hex_y]
+	);
 }
 
 
@@ -562,7 +645,7 @@ function hasBond( hex ) {
 		}
 		if ( neighbor.T >= 100 ) {
 			the_hotness = true;
-			hex.deltaT +=3;
+			if (hex.atomic == 'fissile') { hex.deltaT +=3; }
 			if (hex.T < 100){
 				hex.deltaT +=8;
 				neighbor.deltaT -= 8;
@@ -579,11 +662,6 @@ function hasBond( hex ) {
 		if (neighbor.atomic == 'control') {
 			hex.deltaT-=16*( 1 + hex.power );
 		}
-	}
-
-	if ( the_hotness ) {
-		hex.deltaT += 2;
-		hex.view = null;
 	}
 
 	hex.force = force;
@@ -662,7 +740,6 @@ function operateOnAdjacent( hex, callback ) {
 	}
 }
 
-
 function explode(ball) {
 	if ( !ball || ball.destroyed ) { return; }
 
@@ -699,3 +776,35 @@ function render() {
 	SFRenderer.render(SFStage);
 	requestAnimationFrame(render);
 }
+
+	
+// Mouse/canvas stuff
+function getCartFromEvt(evt) {
+	var offset = $("#sf-stage").offset();
+	return [evt.pageX - offset.left, evt.pageY - offset.top];
+}
+
+function getHexFromEvt(evt) {
+	var cart_coords = getCartFromEvt(evt);
+	return cart2hex(cart_coords[0], cart_coords[1]);
+}
+
+function onBallRightClick(callback) {
+	// Call callback with ball object
+	$(document).on('contextmenu', function(evt) {
+		evt.preventDefault();
+		var hex_coords = getHexFromEvt(evt);
+		var ball = hex_grid[hex_coords[0]][hex_coords[1]];
+		if (!ball) { return; }
+		callback(ball);
+		return false; // suppress context menu
+	})
+}
+
+
+// temporary hexShift test
+
+onBallRightClick(function(ball) {
+	console.log("Right click:", [ball.hex_x, ball.hex_y], ball);
+	hexShift(ball.hex_x, ball.hex_y);
+})

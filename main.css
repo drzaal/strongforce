@@ -55,10 +55,9 @@ body {
 	z-index: 2;
 }
 
-#stage {
+.sf-stage {
 	position: absolute;
 	margin: 0;
-	top: 30px;
 	bottom: 44px;
 	left: auto;
 	right: auto;

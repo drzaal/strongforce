@@ -43,14 +43,14 @@ function control_drag(e) {
 			var input_r = { x: e.offsetX - center_u.x, y: e.offsetY - center_u.y }
 			var delta_theta = 180-180 / Math.PI * Math.atan2( input_r.x, input_r.y );
 			console.log(delta_theta);
-			coolant_rate += (delta_theta) / 40;
-			if (coolant_rate < 0) coolant_rate += 360/40;
-			if (coolant_rate >= 360/40) coolant_rate -= 360/40;
+			coolant_rate += (delta_theta) / 360;
+			if (coolant_rate < 0) coolant_rate += 1;
+			if (coolant_rate >= 1) coolant_rate -= 1;
 			console.log(coolant_rate);
 			$(e.target).css({
-				'-ms-transform': 'rotate('+40*coolant_rate+'deg)',
-				'-webkit-transform': 'rotate('+40*coolant_rate+'deg)',
-				'transform': 'rotate('+40*coolant_rate+'deg)',
+				'-ms-transform': 'rotate('+360*coolant_rate+'deg)',
+				'-webkit-transform': 'rotate('+360*coolant_rate+'deg)',
+				'transform': 'rotate('+360*coolant_rate+'deg)',
 			});
 		}
 		if ( control_id == 'ui-control-2' ) {
