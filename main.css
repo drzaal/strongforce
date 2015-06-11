@@ -72,16 +72,64 @@ body {
 	width: 100%;
 }
 
-#energy-guage {
+#energy-gauge {
 	position: absolute;
 	width: 50px;
 	height: 150px;
 	right: 20px;
 	top: 128px;
 	border: 2px solid white;
+	overflow: none;
+	border-radius: 6px;
 }
 
-#energy-guage-fill {
+#energy-gauge-alert {
+	position: absolute;
+	display: inline-block;
+	overflow: visible;
+	left: 38px;
+	bottom: 0px;
+	width: 150px;
+	font-size: 8px;
+
+	transform-origin: top left;
+	-webkit-transform-origin: top left;
+	-moz-transform-origin: top left;
+	-ms-transform-origin: top left;
+	-o-transform-origin: top left;
+
+	transform: rotate(-90deg);
+	-webkit-transform: rotate(-90deg);
+	-moz-transform: rotate(-90deg);
+	-ms-transform: rotate(-90deg);
+	-o-transform: rotate(-90deg);
+	filter: progid:DXImageTransform.Microsoft.BasicImage(rotation=3);
+	z-index: 670;
+}
+#energy-gauge-text {
+	position: absolute;
+	display: inline-block;
+	overflow: visible;
+	left: 19px;
+	bottom: -10px;
+	width: 150px;
+
+	transform-origin: top left;
+	-webkit-transform-origin: top left;
+	-moz-transform-origin: top left;
+	-ms-transform-origin: top left;
+	-o-transform-origin: top left;
+
+	transform: rotate(-90deg);
+	-webkit-transform: rotate(-90deg);
+	-moz-transform: rotate(-90deg);
+	-ms-transform: rotate(-90deg);
+	-o-transform: rotate(-90deg);
+	filter: progid:DXImageTransform.Microsoft.BasicImage(rotation=3);
+	z-index: 650;
+}
+
+#energy-gauge-fill {
 	position: absolute;
 	bottom: 0;
 	background-color: lawngreen;

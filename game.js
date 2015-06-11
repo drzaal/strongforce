@@ -36,7 +36,7 @@ var NATIONS = {
 	},
 	'Democratic Just Peoples Republic of Something': {
 		player: true,
-		energy: new Energy(100, "#energy-guage-fill", true),
+		energy: new Energy(100, "#energy-gauge-fill", true),
 		color: 0x42a262,
 	},
 	'Not Communism': {
@@ -88,6 +88,10 @@ $(document).on('audioloadcomplete', function() {
 				hex_grid[i][j] = null;
 			}
 		}
+		Energy.top_score_note = new PIXI.Text('Record High!', { font: "12px Arial", fill: 'green' });
+		Energy.top_score_note.alpha = 0;
+		SFStage.addChild(Energy.top_score_note);
+
 		setInterval(function(){
 			var sys_timer = (new Date()).getTime();
 			shallBubble("fissile", bubble_rate);
@@ -101,6 +105,8 @@ $(document).on('audioloadcomplete', function() {
 			var trigger_tunnel = false;
 			var trigger_float = false;
 			var trigger_freefall = false;
+
+			var energy_output = 0;
 
 			render_stagger +=1;
 			if (render_stagger > render_stagger_max) {
@@ -170,6 +176,10 @@ $(document).on('audioloadcomplete', function() {
 				}
 				if (ball.T < 0) { ball.T = 0; }
 
+				if (ball.atomic == 'fissile') {
+					energy_output += Math.ceil(Math.max(Math.min(200, ball.T) - 85, 0) / 30);
+				}
+
 				// Hex position handled, now get real position
 				var pos = { x:ball.x, y:ball.y };
 				ball_du = hex2cart( ball.hex_x, ball.hex_y );
@@ -219,6 +229,7 @@ $(document).on('audioloadcomplete', function() {
 			// RENDER FUNCTION! REPLACE THIS!
 
 			for (var nation in NATIONS) {
+				NATIONS[nation].energy.level = energy_output;
 				NATIONS[nation].energy.step();
 			}
 		},30);
@@ -239,7 +250,7 @@ $(document).on('audioloadcomplete', function() {
 			GameAudio.playSound('newnuke');
 			var ball = Physics.body('circle', {
 				x: e.clientX,
-				y: $('#sf-stage').height(),
+				y: $('.sf-stage').height(),
 				mass: 0.6,
 				restitution: 0.4,
 				vx: (0.04 * Math.random()) - 0.02,
@@ -410,7 +421,7 @@ function hex2cart( i, j ) {
 }
 
 function cart2hex( x, y ) {
-	var j = Math.floor((y - $("#sf-stage").height() + 104) / -8);
+	var j = Math.floor((y - $(".sf-stage").height() + 104) / -8);
 	var i = Math.floor((x - (j%2)*5)/10);
 	return [ i, j ]
 }
@@ -484,6 +495,7 @@ function hexBump( hex_x, hex_y ) {
 	hex_grid[hex_x][hex_y].hex_x = hex_x + shoulder;
 	hex_grid[hex_x][hex_y].hex_y = hex_y+1;
 	hex_grid[ hex_x + shoulder ][ hex_y + 1 ] = hex_grid[hex_x][hex_y];
+	hex_grid[hex_x][hex_y] = null;
 }
 
 // move things sideways (ignore nations for now)
@@ -640,7 +652,7 @@ function hasBond( hex ) {
 				if ( i < 2 ) { bond = true }
 			}
 			else if ( i >= 2 ) {
-				force = true;
+				// force = true;
 			}
 		}
 		if ( neighbor.T >= 100 ) {
@@ -780,7 +792,7 @@ function render() {
 	
 // Mouse/canvas stuff
 function getCartFromEvt(evt) {
-	var offset = $("#sf-stage").offset();
+	var offset = $(".sf-stage").offset();
 	return [evt.pageX - offset.left, evt.pageY - offset.top];
 }
 

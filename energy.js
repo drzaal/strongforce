@@ -1,16 +1,23 @@
 Energy = function(start_level, display_selector, is_player) {
   this.level= start_level;
-  this.max = 100;
-  this.min = 0;
+  this.top_output = 0;
+  this.min_output = 0;
   this.drain_rate = 0.03; // percent per step
   this.display_selector = display_selector;
   this.is_player = is_player;
   this.nuclear_rate = 0;
 }
 
+Energy.top_score_alpha = 0;
+
 Energy.prototype.add = function(amount) {
   // maybe play a sound
-  this.level = Math.min(this.level + amount, this.max);
+  this.level += amount;
+  if (this.level > this.top_output) {
+	this.top_output = this.level;
+	Energy.top_score_alpha = 1;
+
+  }
   this.display();
 }
 
@@ -23,12 +30,30 @@ Energy.prototype.drain = function(amount) {
 }
 
 Energy.prototype.step = function() {
-  this.drain(this.drain_rate);
-  this.add(this.nuclear_rate);
+  Energy.top_score_alpha -= 1/200;
+  if (Energy.top_score_alpha < 0) {
+	Energy.top_score_alpha = 0;
+  }
+
+  if (this.level > this.top_output) {
+	this.top_output = this.level;
+	Energy.top_score_alpha = 1;
+
+  }
+	    // this.drain(this.drain_rate);
+  // this.add(this.nuclear_rate);
+  this.display();
 }
 
 Energy.prototype.display = function() {
-  // redraw the energy guage
+  // redraw the energy gauge
   if (!this.display_selector) { return; }
-  $(this.display_selector).css("height", (100* this.level / this.max).toString() + "%");
+  var max_divisor = this.top_output; // Prevent division by zero
+  if (max_divisor == 0) { max_divisor = 1; }
+  $(this.display_selector).css("height", (100* this.level / max_divisor).toString() + '%');
+  $('#energy-gauge-text').text( this.level + ' GIGA');
+  if (Energy.top_score_alpha > 0){
+    $('#energy-gauge-alert').text( '++ HIGH + MAX ++');
+  }
+  $('#energy-gauge-alert').css('opacity', Energy.top_score_alpha);
 }
