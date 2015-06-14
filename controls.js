@@ -42,11 +42,9 @@ function control_drag(e) {
 			var center_u = { x: parent_container.width() / 2, y: parent_container.height() / 2 };
 			var input_r = { x: e.offsetX - center_u.x, y: e.offsetY - center_u.y }
 			var delta_theta = 180-180 / Math.PI * Math.atan2( input_r.x, input_r.y );
-			console.log(delta_theta);
 			coolant_rate += (delta_theta) / 360;
 			if (coolant_rate < 0) coolant_rate += 1;
 			if (coolant_rate >= 1) coolant_rate -= 1;
-			console.log(coolant_rate);
 			$(e.target).css({
 				'-ms-transform': 'rotate('+360*coolant_rate+'deg)',
 				'-webkit-transform': 'rotate('+360*coolant_rate+'deg)',
@@ -54,8 +52,8 @@ function control_drag(e) {
 			});
 		}
 		if ( control_id == 'ui-control-2' ) {
-			bubble_rate += ((e.offsetY-3) / 64);
-			$(e.target).css({ 'margin-top': Math.floor(bubble_rate * 64)+'px'});
+			bubble_rate += ((e.offsetY-28) / 64);
+			$(e.target).css({ 'margin-top': (-28 + Math.floor(bubble_rate * 64))+'px'});
 		}
 	}
 }

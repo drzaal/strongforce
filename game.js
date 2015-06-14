@@ -16,7 +16,7 @@ var tunnel_stagger = 0.45;
 var tunnel_timer = 0;
 var freefall_stagger = 0.05;
 var freefall_timer = 0.45;
-var float_stagger = 0.35;
+var float_stagger = 0.55;
 var float_timer = 0;
 var nuclear_energy_gain_rate = 0.0001;
 var freefall_timestep = 50; // uh maybe replace this with physicsjs timestep?
@@ -29,25 +29,25 @@ var SFRenderer;
 var render_stagger = 0; // Stagger our Redraws. This should reduce slowdown
 var render_stagger_max = 30;
 
+var energy = new Energy(100, "#energy-gauge-fill", true);
+var meltdown_alarm = new Energy(100, "#meltdown-gauge-fill", true);
+
 var NATIONS = {
 	'Federal States of Vespuccica': {
-		energy: new Energy(100),
-		color: 0x4262a2,
+		color: 0x4262a2
 	},
-	'Democratic Just Peoples Republic of Something': {
+	'Democratic Just Peoples Republic of Libertystan': {
 		player: true,
-		energy: new Energy(100, "#energy-gauge-fill", true),
-		color: 0x42a262,
+		color: 0x42a262
 	},
-	'Not Communism': {
-		energy: new Energy(100),
-		color: 0xa24262,
+	'CCCCCCCCCP': {
+		color: 0xa24262
 	}
 };
 var NATIONS_INDEX = [
 	'Federal States of Vespuccica',
-	'Democratic Just Peoples Republic of Something',
-	'Not Communism',
+	'Democratic Just Peoples Republic of Libertystan',
+	'CCCCCCCCCP',
 ];
 
 var player_nation = "Democratic Just Peoples Republic of Something";
@@ -72,6 +72,7 @@ $(document).on('audioloadcomplete', function() {
 
 	$.getScript("pixi.min.js", function(){
 
+		PIXI.Graphics.prototype.drawHexagon = drawHexagon; // Apply our new function to PIXI Graphics base;
 		SFStage = new PIXI.Stage( 0xFFFFFF );
 		SFRenderer = PIXI.autoDetectRenderer( stageWidth, stageHeight, { transparent: true, antialias: true } );
 		SFRenderer.view.className = "sf-stage";
@@ -95,7 +96,7 @@ $(document).on('audioloadcomplete', function() {
 		setInterval(function(){
 			var sys_timer = (new Date()).getTime();
 			shallBubble("fissile", bubble_rate);
-			shallBubble("coolant", 1/2 * coolant_rate);
+			shallBubble("coolant", 0.6 * coolant_rate);
 			if ( control_rod_insertion && control_rod_count > 0) {
 				control_rod_insertion = false;
 				control_rod_count -=1;
@@ -107,8 +108,22 @@ $(document).on('audioloadcomplete', function() {
 			var trigger_freefall = false;
 
 			var energy_output = 0;
+			var meltdown_imminance = 0;
 
 			render_stagger +=1;
+			if (hex_arry.length < 300) {
+				render_stagger_max = 30;
+			}
+			else if (hex_arry.length < 600) {
+				render_stagger_max = 40;
+			}
+			else if (hex_arry.length < 800) {
+				render_stagger_max = 50;
+			}
+			else {
+				render_stagger_max = 60;
+			}
+
 			if (render_stagger > render_stagger_max) {
 				render_stagger = 0;
 			}
@@ -148,6 +163,7 @@ $(document).on('audioloadcomplete', function() {
 				
 				if ( ball.atomic == 'coolant' ) {
 					hasBond(ball);
+					ball.deltaT -= 1;
 					if (trigger_float) {
 						hexGen( null, ball.hex_x, ball.hex_y);
 					}
@@ -159,14 +175,12 @@ $(document).on('audioloadcomplete', function() {
 				}
 				else if ( ball.atomic == 'fissile' ) {
 					hasBond( ball );
-					if (ball.force) { 
-						hexBump( ball.hex_x, ball.hex_y);
-					}
-					else if (trigger_freefall) {
+					if (trigger_freefall) {
 						hexSlip( ball.hex_x, ball.hex_y );
+						ball.force = [-1, -1];
 					}
 				}
-				if ( ball.deltaT > 100 ) {
+				if ( ball.deltaT >= 100 ) {
 					ball.T += 5;
 					ball.deltaT -= 100;
 				}
@@ -178,6 +192,7 @@ $(document).on('audioloadcomplete', function() {
 
 				if (ball.atomic == 'fissile') {
 					energy_output += Math.ceil(Math.max(Math.min(200, ball.T) - 85, 0) / 30);
+					meltdown_imminance += Math.ceil(Math.max(ball.T - 200, 0) / 40);
 				}
 
 				// Hex position handled, now get real position
@@ -198,9 +213,7 @@ $(document).on('audioloadcomplete', function() {
 						ball.clear();
 						ball.lineStyle( 1, 0x444444, 1);
 						ball.beginFill( ball.fillStyle );
-						ball.drawCircle(
-							0,
-							0,
+						ball.drawHexagon(
 							ball.rad
 						);
 					}
@@ -215,23 +228,21 @@ $(document).on('audioloadcomplete', function() {
 						ball.clear();
 						ball.lineStyle( 1, 0x444444, 1);
 						ball.beginFill( ball.fillStyle );
-						ball.drawCircle(
-							0,
-							0,
+						ball.drawHexagon(
 							ball.rad
 						);
 					}
 				}
-				if (ball.T > 350) {
+				if (ball.T > 300) {
 					explode(ball);
 				}
 			}
 			// RENDER FUNCTION! REPLACE THIS!
 
-			for (var nation in NATIONS) {
-				NATIONS[nation].energy.level = energy_output;
-				NATIONS[nation].energy.step();
-			}
+				energy.level = energy_output;
+				energy.step();
+				meltdown_alarm.level = meltdown_imminance;
+				meltdown_alarm.step();
 		},30);
 
 
@@ -326,6 +337,7 @@ function dropCarbonRod() {
 		ball.nation_color = NATIONS[NATIONS_INDEX[i]].color;
 		ball.T = 0;
 		ball.deltaT = 0;
+		ball.force = [-1,-1];
 		ball.destroyed = false;
 		ball.nation = i;
 		initMotionState(ball);
@@ -348,8 +360,14 @@ function shallBubble(atomic_type, rate) {
 
 		// Choose only a channel that is within a particular nation
 		var nation_bin = Math.floor( Math.random() * NATIONS_INDEX.length );
-		var bounds = getNationBounds(nation_bin);
-		var left = (bounds[0] + Math.random() * (bounds[1] - bounds[0]));
+
+		if (atomic_type == 'fissile') {
+			var bounds = getNationBounds(nation_bin);
+			var left = (bounds[0] + Math.random() * (bounds[1] - bounds[0]));
+		}
+		else {
+			var left = Math.random() * stageWidth;
+		}
 		var channel = Math.floor( (hex_grid.length-1) * left / stageWidth );
 		
 		var color = Math.random() * 0xFFFFFF;
@@ -369,9 +387,7 @@ function shallBubble(atomic_type, rate) {
 			ballrad = 4;
 		}
 
-		ball.drawCircle(
-			0,
-			0,
+		ball.drawHexagon(
 			ballrad
 		);
 		ball.x = pos[0];
@@ -384,6 +400,7 @@ function shallBubble(atomic_type, rate) {
 		ball.hex_y = 0;
 		ball.atomic = atomic_type; // 'fissile';
 		ball.power = 0;
+		ball.force = [-1, -1];
 		ball.nation_color = NATIONS[NATIONS_INDEX[nation_bin]].color;
 		ball.T = 0;
 		ball.deltaT = 0;
@@ -542,7 +559,7 @@ function hexSlip( hex_x, hex_y ) {
 	var ball = hex_grid[hex_x][hex_y];
 	if (ball === null) { return; }
 
-	if (isInFreefall(ball)) {
+	if (Math.max(ball.force[0], ball.force[1]) < 0 && isInFreefall(ball)) {
 		hexFreefall(hex_x, hex_y);
 		// no need to call hexFreefall
 		return;
@@ -551,10 +568,10 @@ function hexSlip( hex_x, hex_y ) {
 	var left_x = hex_x - ((hex_y+1)%2);
 	if ( hex_y > 0 ){
 		var open_pos = 0
-		if ( left_x > 0 && hex_grid[left_x][hex_y-1] == null ) {
+		if ( ball.force[0] < 0 && left_x > 0 && hex_grid[left_x][hex_y-1] == null ) {
 			open_pos += 1;
 		}
-		else if ( left_x+1 < hex_grid.length && hex_grid[left_x+1][hex_y-1] == null ) {
+		if ( ball.force[1] < 0 && left_x+1 < hex_grid.length && hex_grid[left_x+1][hex_y-1] == null ) {
 			open_pos += 2;
 		}
 		if ( open_pos == 3 ) {
@@ -611,7 +628,6 @@ function updateHex(old_hex, new_hex) {
 }
 
 function hasBond( hex ) {
-	hex.force = false;
 
 	// Nukes never bond???
 	if (hex.atomic == 'control') { return false; }
@@ -630,53 +646,87 @@ function hasBond( hex ) {
 	var i=0;
 	var imax = adjacent.length;
 
+	if (hex_y == 0) {
+		hex.force[1] = Number.MAX_VALUE - 10000;
+		hex.force[2] = Number.MAX_VALUE - 10000;
+	}
+
 	hex.power = Math.max(0, Math.ceil((hex.T - 100) / 30));
 
 	var bond = false;
-	var force = false;
 	var the_hotness = false;
+	var force_vector;
 	for ( i=0; i<imax; i++ ) {
 		var cell = adjacent[i];
 		// Don't allow invalid indices for checks.
 		if ( cell[0] < 0 || cell[1] < 0 || cell[0] >= hex_grid.length ) {
+			hex.deltaT -= 1 + 2 * hex.power;
 			continue;
 		}
 		var neighbor = hex_grid[cell[0]][cell[1]];
 		if (neighbor == null) {
-			hex.deltaT -=2;
+			hex.deltaT -= 4 + 4 * hex.power;
 			continue;
 		}
-		if ( neighbor.power > hex.power) {
-			if ( neighbor.nation == hex.nation ) {
-				hex.power = neighbor.power - 1;
-				if ( i < 2 ) { bond = true }
-			}
-			else if ( i >= 2 ) {
-				// force = true;
+		if ( neighbor.nation == hex.nation && hex.atomic == 'fissile' && neighbor.atomic == 'fissile' ) {
+			force_vector = Math.max( 0, neighbor.power + hex.power);
+			switch (i) {
+				case 0:
+					if (neighbor.force[0] > 0) {
+						hex.force[0] += force_vector;	
+						hex.force[1] += force_vector;	
+						neighbor.force[0] -= 1;
+						neighbor.force[1] -= 1;
+					}
+				break;
+				case 1:
+					if (neighbor.force[1] > 0) {
+						hex.force[0] += force_vector;	
+						hex.force[1] += force_vector;	
+						neighbor.force[0] -= 1;
+						neighbor.force[1] -= 1;
+					}
+				break;
+				case 2:
+					if (neighbor.force[1] > 0) {
+						hex.force[0] += force_vector;	
+						hex.force[1] += force_vector;	
+						neighbor.force[0] -= 1;
+						neighbor.force[1] -= 1;
+					}
+				break;
+				case 3:
+					if (neighbor.force[0] > 0) {
+						hex.force[0] += force_vector;	
+						hex.force[1] += force_vector;	
+						neighbor.force[0] -= 1;
+						neighbor.force[1] -= 1;
+					}
+				break;
+				case 4:
+					hex.force[1] += force_vector;
+					neighbor.force[0] -= 1;
+					hex.force[0] = neighbor.force[0];
+				break;
+				case 5:
+					hex.force[0] += force_vector;
+					neighbor.force[1] -= 1;
+					hex.force[1] = neighbor.force[1];
+				break;
 			}
 		}
-		if ( neighbor.T >= 100 ) {
-			the_hotness = true;
-			if (hex.atomic == 'fissile') { hex.deltaT +=3; }
-			if (hex.T < 100){
-				hex.deltaT +=8;
-				neighbor.deltaT -= 8;
-			}
-			else if (neighbor.T - hex.T > 120) {
-				hex.deltaT +=4;
-				neighbor.deltaT -= 4;
-			}
-			else if (neighbor.T - hex.T > 60) {
-				hex.deltaT +=2;
-				neighbor.deltaT -= 2;
-			}
+		if (hex.atomic == 'fissile' && neighbor.atomic == 'fissile') { 
+			hex.deltaT += 4;
 		}
+		if (neighbor.T > hex.T) {
+			hex.deltaT += 2 + 6 * (neighbor.power - hex.power);
+			neighbor.deltaT -= 2 + 6 * (neighbor.power - hex.power);
+		}
+
 		if (neighbor.atomic == 'control') {
-			hex.deltaT-=16*( 1 + hex.power );
+			hex.deltaT-=32*( 1 + hex.power );
 		}
 	}
-
-	hex.force = force;
 	
 	return bond;
 }
@@ -820,3 +870,18 @@ onBallRightClick(function(ball) {
 	console.log("Right click:", [ball.hex_x, ball.hex_y], ball);
 	hexShift(ball.hex_x, ball.hex_y);
 })
+
+/*
+ * Will try to replace the circles with little hexagons. Fuuuuun.
+ */
+function drawHexagon(radius, theta) {
+	if (theta == undefined) { theta = 0; }
+
+	var i = 0;
+	vertices = [];
+	for (i=0; i<6; i++) {
+		vertices.push(radius*Math.sin(i*Math.PI/3+theta));
+		vertices.push(radius*Math.cos(i*Math.PI/3+theta));
+	}
+	return this.drawPolygon(vertices);	
+}

@@ -45,15 +45,17 @@ Energy.prototype.step = function() {
   this.display();
 }
 
+// redraw the energy gauge
 Energy.prototype.display = function() {
-  // redraw the energy gauge
   if (!this.display_selector) { return; }
+  var gauge = $(this.display_selector);
+
   var max_divisor = this.top_output; // Prevent division by zero
   if (max_divisor == 0) { max_divisor = 1; }
-  $(this.display_selector).css("height", (100* this.level / max_divisor).toString() + '%');
-  $('#energy-gauge-text').text( this.level + ' GIGA');
+  gauge.css("height", (100* this.level / max_divisor).toString() + '%');
+  gauge.next('.gauge-text').text( this.level + ' GIGA');
   if (Energy.top_score_alpha > 0){
-    $('#energy-gauge-alert').text( '++ HIGH + MAX ++');
+    gauge.next('.gauge-alert').text( '++ HIGH + MAX ++');
   }
-  $('#energy-gauge-alert').css('opacity', Energy.top_score_alpha);
+  gauge.next('.gauge-alert').css('opacity', Energy.top_score_alpha);
 }
