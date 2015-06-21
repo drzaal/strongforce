@@ -6,6 +6,7 @@ Energy = function(start_level, display_selector, is_player) {
   this.display_selector = display_selector;
   this.is_player = is_player;
   this.nuclear_rate = 0;
+  this.text = "";
 }
 
 Energy.top_score_alpha = 0;
@@ -42,7 +43,6 @@ Energy.prototype.step = function() {
   }
 	    // this.drain(this.drain_rate);
   // this.add(this.nuclear_rate);
-  this.display();
 }
 
 // redraw the energy gauge
@@ -53,7 +53,7 @@ Energy.prototype.display = function() {
   var max_divisor = this.top_output; // Prevent division by zero
   if (max_divisor == 0) { max_divisor = 1; }
   gauge.css("height", (100* this.level / max_divisor).toString() + '%');
-  gauge.next('.gauge-text').text( this.level + ' GIGA');
+  gauge.next('.gauge-text').text( this.level + this.text);
   if (Energy.top_score_alpha > 0){
     gauge.next('.gauge-alert').text( '++ HIGH + MAX ++');
   }

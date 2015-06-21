@@ -13,14 +13,16 @@ body {
 	margin: 0 20px;
 	display: inline;
 	display: inline-block;
+	/*
 	border: 2px solid: lightblue;
 	border-radius: 5px;
 	color: #cccccc;
 	background-color: rgba( 255, 255, 255, 0.2 );
+	*/
 	font-size: 8px;
 	font-weight: bold,
 	text-align: center;
-	background-image: url('assets/nations.png');
+	/* background-image: url('assets/nations.png'); */
 }
 
 .wpn {
@@ -42,6 +44,7 @@ body {
 	background-color: black;
 	height: 64px;
 	margin: 0px;
+	z-index: 300;
 }
 
 
@@ -51,25 +54,51 @@ body {
 	top:0px;
 	height: 128px;
 	background-image: url('assets/title.png');
+	background-repeat: no-repeat;
+	background-position: center top;
+	background-size: 512px 64px;
 	margin: 0px;
-	z-index: 2;
+	z-index: 300;
+}
+
+#stage-wrapper {
+	overflow-x: show;
+	position: relative;
+	margin: 0 auto 0 auto;
+	padding: 0;
+	height: 100%;
+	width: 400px;
+	border: 3px solid rgba( 32, 32, 32, 0.4);
 }
 
 .sf-stage {
 	position: absolute;
-	margin: 0;
-	bottom: 44px;
-	left: auto;
-	right: auto;
+	padding: 0;
+	bottom: 150px;
 	pointer-events: none;
 	z-index: 400;
+	display: block;
+	width: 400px;
+	/*
+	background: url("assets/silo.png");
+	background-size: 400px 400px;
+	background-position: center bottom;
+	background-repeat: no-repeat;
+	*/
 }
 
 #international {
-	position: absolute;
-	right: 0px;
+	position: fixed;
+	margin: 0 auto 0 auto;
 	bottom: 0px;
-	width: 100%;
+	width: 600px;
+	height: 250px;
+	left: 0;
+	right: 0;
+	background: url("assets/hill.png");
+	background-size: 100%;
+	background-repeat: no-repeat;
+	z-index: 300;
 }
 
 /* MELTDOWN GAUGE, paniiiiiic! */
@@ -160,6 +189,20 @@ body {
 }
 
 
+#underlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height:100%;
+	z-index: 200;
+	font-size: 100px;
+	font-style: italic;
+	text-align: center;
+	padding-top: 200px;
+	opacity: 0;
+	background-color:red;
+}
 #overlay {
 	position: fixed;
 	top: 0;
@@ -220,4 +263,13 @@ body {
 	position: relative;
 	display: inline;
 	display: inline-block;
+}
+div.house {
+	z-index: 900;
+	display:inline;
+	display:inline-block;
+	position: absolute;
+	background: url("assets/neighborhood.png");
+	width: 64px;
+	height: 64px;
 }

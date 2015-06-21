@@ -20,8 +20,8 @@ var float_stagger = 0.55;
 var float_timer = 0;
 var nuclear_energy_gain_rate = 0.0001;
 var freefall_timestep = 50; // uh maybe replace this with physicsjs timestep?
-var stageWidth = 600;
-var stageHeight = 400;
+var stageWidth = 400;
+var stageHeight = 440;
 
 // Renderer stuff
 var SFStage;
@@ -30,11 +30,13 @@ var render_stagger = 0; // Stagger our Redraws. This should reduce slowdown
 var render_stagger_max = 30;
 
 var energy = new Energy(100, "#energy-gauge-fill", true);
+energy.text = " GIGA";
 var meltdown_alarm = new Energy(100, "#meltdown-gauge-fill", true);
+meltdown_alarm.text = " ALRM";
 
 var NATIONS = {
 	'Federal States of Vespuccica': {
-		color: 0x4262a2
+		color: 0xcdcd42
 	},
 	'Democratic Just Peoples Republic of Libertystan': {
 		player: true,
@@ -76,13 +78,13 @@ $(document).on('audioloadcomplete', function() {
 		SFStage = new PIXI.Stage( 0xFFFFFF );
 		SFRenderer = PIXI.autoDetectRenderer( stageWidth, stageHeight, { transparent: true, antialias: true } );
 		SFRenderer.view.className = "sf-stage";
-		document.body.appendChild(SFRenderer.view);
+		$("#stage-wrapper").prepend(SFRenderer.view);
 
 		requestAnimationFrame( render );
 
 		var i, j;
 		var imax = Math.floor( stageWidth / 10 ) - 1;
-		var jmax = Math.floor( stageHeight / 8 );
+		var jmax = Math.floor( (stageHeight - 44) / 8 );
 		for ( i = 0; i < imax; i++ ) {
 			hex_grid[i] = [];
 			for ( j = 0; j < jmax; j++ ) {
@@ -203,13 +205,13 @@ $(document).on('audioloadcomplete', function() {
 				ball.vx = (ball_du[0] - pos.x) / 5
 				ball.vy = (ball_du[1] - pos.y) / 5;
 
-				ball.x = ball.x + ball.vx;
-				ball.y = ball.y + ball.vy;
+				if (Math.abs(ball.vx) > 0.1) ball.x = ball.x + ball.vx;
+				if (Math.abs(ball.vy) > 0.01) ball.y = ball.y + ball.vy;
 
 				// Now render
 				if ((render_stagger + i) % render_stagger_max == 0) {
 					if (ball.atomic == 'coolant') {
-						ball.fillStyle = ( 0xDDDD22 );
+						ball.fillStyle = ( 0x5272b2 );
 						ball.clear();
 						ball.lineStyle( 1, 0x444444, 1);
 						ball.beginFill( ball.fillStyle );
@@ -228,7 +230,8 @@ $(document).on('audioloadcomplete', function() {
 						ball.clear();
 						ball.lineStyle( 1, 0x444444, 1);
 						ball.beginFill( ball.fillStyle );
-						ball.drawHexagon(
+						ball.drawCircle(
+							0,0,
 							ball.rad
 						);
 					}
@@ -243,6 +246,11 @@ $(document).on('audioloadcomplete', function() {
 				energy.step();
 				meltdown_alarm.level = meltdown_imminance;
 				meltdown_alarm.step();
+				if (render_stagger == 0) {
+					energy.display();
+					meltdown_alarm.display();
+				}
+				$('#underlay').css({ 'background-color': 'red', opacity: Math.sqrt( meltdown_imminance ) / 32 });
 		},30);
 
 
@@ -379,7 +387,7 @@ function shallBubble(atomic_type, rate) {
 		ball.lineStyle( 1, 0x444444, 1);
 		
 		if (atomic_type == 'coolant') {
-			ball.beginFill( 0xdddd22 );
+			ball.beginFill( 0x5272b2 );
 			ballrad = 3;
 		}
 		else {
@@ -432,8 +440,8 @@ function initMotionState(ball) {
  * Convert hex coordinates to cartesian space.
  */
 function hex2cart( i, j ) {
-	var x = i*10 + (j%2)*5;
-	var y = stageHeight - 104 - j*8;
+	var x = 5 + i*10 + (j%2)*5;
+	var y = stageHeight - 44 - j*8;
 	return [ x, y ];
 }
 
@@ -467,6 +475,7 @@ function hexGen( hex, hex_x, hex_y ) {
  * @param int hex_y The Y index of the hex container.
  */
 function hexHeater( hex, hex_x, hex_y, delta_m ) {
+	if (hex_grid[hex_x] == null) console.log(hex_x + ' ' + hex_y );
 	if (hex_grid[hex_x][hex_y] != null) {
 		if (hex_grid[hex_x][hex_y].atomic == 'fissile') {
 			hex_grid[hex_x][hex_y].T += delta_m;
@@ -724,7 +733,7 @@ function hasBond( hex ) {
 		}
 
 		if (neighbor.atomic == 'control') {
-			hex.deltaT-=32*( 1 + hex.power );
+			hex.deltaT-=48*( 1 + hex.power );
 		}
 	}
 	
@@ -733,7 +742,7 @@ function hasBond( hex ) {
 
 function getNationBounds(index) {
 	var nation_element = $('#international .nation-state[data-nation="' + index + '"]');
-	return [nation_element.offset().left, nation_element.offset().left + nation_element.width()];
+	return [nation_element.position().left, nation_element.position().left + nation_element.width()];
 }
 
 function isOutOfBounds(ball) {
